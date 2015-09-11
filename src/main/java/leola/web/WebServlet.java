@@ -68,7 +68,6 @@ public class WebServlet extends HttpServlet {
          * as the response
          */
         if(webResponse.hasTemplate()) {
-            //req.getRequestDispatcher( resp.encodeURL(webResponse.getTemplatePath()) ).forward(req, resp);
             MustacheFactory mf = new DefaultMustacheFactory(webapp.getRootDirectory());
             
             Mustache mustache = mf.compile(webResponse.getTemplatePath());            

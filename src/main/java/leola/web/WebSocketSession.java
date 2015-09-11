@@ -8,9 +8,12 @@ import javax.websocket.SendHandler;
 import javax.websocket.SendResult;
 import javax.websocket.Session;
 
+import leola.vm.Leola;
 import leola.vm.types.LeoObject;
 
 /**
+ * A thin wrapper around the {@link Session}.  This just makes integration with {@link Leola} more convenient.
+ * 
  * @author Tony
  *
  */

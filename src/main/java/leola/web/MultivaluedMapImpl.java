@@ -10,6 +10,7 @@ import java.util.List;
 import javax.ws.rs.core.MultivaluedMap;
 
 /**
+ * Very simple implementation of a {@link MultivaluedMap}
  * 
  * @author Tony
  *

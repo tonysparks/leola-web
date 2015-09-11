@@ -60,6 +60,9 @@ public class WebApp {
      */
     private Server server;
     
+    /**
+     * The application configuration
+     */
     private LeoMap config;
     
     private Optional<LeoObject> errorHandler;
@@ -68,6 +71,16 @@ public class WebApp {
     private List<ServerEndpointConfig> webSocketConfigs;
     
     /**
+     * The supplied configuration should have properties:
+     * 
+     * <pre>
+     *   {
+     *      resourceBase -> "", // a String that denotes the home directory of where to look for html/css/javascript files
+     *      context -> "", // a String that denotes the context of the web application: http://localhost:8121/context
+     *      port -> 8181, // an Integer that denotes the port number the web server should use
+     *   }
+     * </pre>
+     * 
      * @param suppliedConfig
      */
     public WebApp(LeoMap suppliedConfig) {
@@ -124,11 +137,29 @@ public class WebApp {
         return this.routes.getRoute(request.getMethod(), request.getRequestURI());
     }
     
+    
+    /**
+     * Bind an error handler function.  The supplied function will be invoked whenever an Exception or
+     * error occurs during a Routing request.
+     * 
+     * @param function
+     * @return the supplied function
+     */
     public LeoObject errorHandler(LeoObject function) {
         this.errorHandler = Optional.ofNullable(function);
         return function;
     }
     
+    
+    /**
+     * Bind a context handler function.  The supplied function will be invoked after the creation of a 
+     * {@link RequestContext}.  This allows the application to inject specific properties into the
+     * request.
+     * 
+     * 
+     * @param function
+     * @return the supplied function
+     */
     public LeoObject contextHandler(LeoObject function) {
         this.contextHandler = Optional.ofNullable(function);
         return function;
@@ -178,6 +209,19 @@ public class WebApp {
     
     /**
      * Bind a websocket server endpoint with the supplied configuration.
+     * 
+     * <p>
+     * The supplied configuration should have the following properties:
+     * 
+     * <pre>
+     *   {
+     *     route -> "", // A String that denotes the path of the websocket (ex. "/socketTest", could map to: ws://localhost:8121/context/socketTest)
+     *     onOpen -> def(session) {}, // a Function that will be invoked when a WebSocket is connected to the server
+     *     onClose -> def(session, reason) {}, // a Function that will be invoked when a WebSocket is disconnected from the server
+     *     onMessage -> def(session, message) {}, // a Function that will be invoked when a message comes in on a WebSocket
+     *     onError -> def(session, exception) {}, // a Function that will be invoked when a problem occurs on a WebSocket
+     *   }
+     * </pre>
      * 
      * @param config
      * @return the passed in configuration

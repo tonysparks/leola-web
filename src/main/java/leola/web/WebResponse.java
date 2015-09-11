@@ -13,9 +13,34 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response.Status;
 
+import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoObject;
 
 /**
+ * An HTTP response to be sent back to the client.  A response will contain:
+ * 
+ * <ul>
+ *  <li>Headers</li>
+ *  <li>Cookies</li>
+ *  <li>Content Type</li>
+ *  <li>Content Length</li>
+ *  <li>Character Encoding</li>
+ *  <li>HTTP Status</li>
+ *  <li>Payload</li>
+ * </ul>
+ * 
+ * There are various convenience methods supplied to the {@link WebResponse} that take care of most of the response values.  For example:
+ * 
+ * <pre>
+ *   // in leola code
+ *   web:ok().json({
+ *      message -> "Everything is well!"
+ *   })
+ * </pre>
+ * 
+ * The above will create a {@link WebResponse} with an HTTP status code of <code>200</code> and set the content type to <code>text/json</code> and appropriatly set 
+ * the content length and payload.
+ * 
  * @author Tony
  *
  */
@@ -32,9 +57,9 @@ public class WebResponse {
     private String templatePath;
     private boolean isTemplate;
     
-    
     /**
-     * 
+     * @param result the payload result
+     * @param status the http status
      */
     public WebResponse(LeoObject result, int status) {
         this.result = result;
@@ -109,21 +134,21 @@ public class WebResponse {
     
     /**
      * @return the templatePath
-     */
+     */    
     public String getTemplatePath() {
         return templatePath;
     }
     
     /**
      * @return the result
-     */
+     */    
     public Object getResult() {
         return result;
     }
     
     /**
      * @return the isTemplate
-     */
+     */    
     public boolean hasTemplate() {
         return isTemplate;
     }
@@ -135,6 +160,7 @@ public class WebResponse {
      * @param resp
      * @throws IOException
      */
+    @LeolaIgnore
     public void packageResponse(final HttpServletResponse resp) throws IOException {
         headers.forEach((key, values) -> {
             values.forEach(value -> resp.addHeader(key, value) );            

@@ -48,8 +48,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
         runtime.loadLibrary(redisLib, "redis");
         
         MongoLeolaLibrary mongoLib = new MongoLeolaLibrary();
-        runtime.loadLibrary(mongoLib, "mongo");
-        
+        runtime.loadLibrary(mongoLib, "mongo");       
         
         File root = new File("C:/Users/chq-tonys/Desktop/Orders");
         runtime.addIncludePath(root);
@@ -116,15 +115,35 @@ public class WebLeolaLibrary implements LeolaLibrary {
         return new WebResponse(Status.INTERNAL_SERVER_ERROR);
     }
  
+    
+    /**
+     * Constructs a {@link WebResponse} with the supplied status HTTP code.
+     * 
+     * @param status the HTTP status code
+     * @return the {@link WebResponse}
+     */
     public WebResponse status(int status) {
         return new WebResponse(status);
     }
     
+    
+    /**
+     * Converts the supplied {@link LeoObject} into a JSON {@link String}
+     * 
+     * @param obj
+     * @return the JSON string
+     */
     public static String toJson(LeoObject obj) {
         Gson gson = new GsonBuilder().create();        
         return gson.toJson(obj);        
     }
     
+    /**
+     * Converts the supplied JSON {@link String} into a {@link LeoObject}
+     * 
+     * @param message
+     * @return the {@link LeoObject}
+     */
     @LeolaMethod(alias="fromJson")
     public static LeoObject fromJson(String message) {
         Gson gson = new GsonBuilder().create();        

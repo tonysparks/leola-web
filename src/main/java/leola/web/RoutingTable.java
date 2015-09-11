@@ -69,25 +69,32 @@ public class RoutingTable {
         }
         
         /**
-         * @return the config
+         * @return the configuration of the {@link Route}.  The configuration will contain the route <b>path</b> (i.e., <code>path -> "/users/{userid}"</code>) and the
+         * request <b>methods</b> (i.e., <code>methods -> ["GET", "PUT", "POST"]</code>).  This identifies the request route an incoming HTTP request should take.
          */
         public LeoMap getConfig() {
             return config;
         }
         
         /**
-         * @return the function
+         * @return the function that is bound to the {@link Route}.  This function will be invoked when a {@link Route} is found from an HTTP request.
          */
         public LeoObject getFunction() {
             return function;
         }
         
+        
+        /**
+         * @return the {@link UriTemplate} contains the information for path parameters (i.e., <code>"/users/{userid}"</code>, 'userid' is a path
+         * parameter.
+         */
         public UriTemplate getUriTemplate() {                        
             return this.template;
         }
         
         /**
-         * The route parameters from the supplied path
+         * The route parameters from the supplied path.
+         * 
          * @param path
          * @return the key/value pair where the key is the name of the variable name, and the value is what was
          * in place in the supplied path
