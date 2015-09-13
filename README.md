@@ -64,6 +64,33 @@ app.route
    })
 ````    
     
+Responses
+====
+There are a number of ways to make an HTTP response.
+
+````javascript
+// There are a number of factory methods from the 'web' namespace that map to common used HTTP response 
+// types
+web:ok() // 200
+web:created()
+web:noContent()
+web:serverError() // 500
+web:status(status) // custom status
+
+// These factory methods return a WebResponse which then allows you to construct different payloads:
+var response = web:ok().json( {} ) // accepts map which gets converted to a Json string
+response.cookie("name", "value" )
+        .header("name", " value" )
+        .characterEncoding("UTF-8")
+
+var templateObj = {
+ // add values here to be used by the template engine (mustache)
+}        
+response.template( templateObj, "/ui/index.html" ) // return back the html file (uses mustache as a template engine)
+// 
+
+````
+    
 When things go wrong
 ====
 When an exception occurs, you can bind a Leola function and handle it by returning a custom response back to the client.
