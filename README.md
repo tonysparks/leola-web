@@ -9,6 +9,8 @@ Creating the Application
 Create a WebApp that allows you to bind HTTP request URL's (i.e., Routes) to functions.
 
 ````javascript
+require("lib/web", "web" )  // path to the leola-web.jar
+
 var app = web:newWebApp({
 
     /* The directory in which this application is installed, more percisely, where the
