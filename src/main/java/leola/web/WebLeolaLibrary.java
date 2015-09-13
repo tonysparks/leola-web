@@ -3,15 +3,12 @@
  */
 package leola.web;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
 import javax.ws.rs.core.Response.Status;
 
-import leola.mongo.MongoLeolaLibrary;
-import leola.redis.RedisLeolaLibrary;
 import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaLibrary;
@@ -37,25 +34,6 @@ import com.google.gson.JsonPrimitive;
  *
  */
 public class WebLeolaLibrary implements LeolaLibrary {
-
-    public static void main(String[] args) throws Exception {
-        Leola runtime = new Leola();
-        
-        WebLeolaLibrary webLib = new WebLeolaLibrary();
-        runtime.loadLibrary(webLib, "web");
-        
-        RedisLeolaLibrary redisLib = new RedisLeolaLibrary();
-        runtime.loadLibrary(redisLib, "redis");
-        
-        MongoLeolaLibrary mongoLib = new MongoLeolaLibrary();
-        runtime.loadLibrary(mongoLib, "mongo");       
-        
-        File root = new File("C:/Users/chq-tonys/Desktop/Orders");
-        runtime.addIncludePath(root);
-                
-        LeoObject result = runtime.eval(new File(root, "app.leola"));
-        System.out.println(result);
-    }
     
     /* (non-Javadoc)
      * @see leola.vm.lib.LeolaLibrary#init(leola.vm.Leola, leola.vm.types.LeoNamespace)

@@ -66,6 +66,7 @@
 			<groupId>leola</groupId>
 			<artifactId>leola</artifactId>
 			<version>0.9.4</version>
+			<scope>provided</scope>
 		</dependency>
 
 		<dependency>
@@ -79,19 +80,6 @@
 			<artifactId>compiler</artifactId>
 			<version>0.9.1</version>			
 		</dependency>
-
-		<!-- temp, remove once final deployed - this is just for POC purposes -->
-		<dependency>
-			<groupId>leola-redis</groupId>
-			<artifactId>leola-redis</artifactId>
-			<version>1.0-SNAPSHOT</version>
-		</dependency>
-		<dependency>
-			<groupId>leola-mongo</groupId>
-			<artifactId>leola-mongo</artifactId>
-			<version>1.0-SNAPSHOT</version>
-		</dependency>
-
 
 	</dependencies>
 
