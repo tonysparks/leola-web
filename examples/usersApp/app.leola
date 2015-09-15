@@ -1,0 +1,131 @@
+// import leola-web.jar into the 'web' namespace
+require("lib/web", "web")
+
+
+// Some dummy data
+var users = {
+    tony -> {
+        first -> "tony",
+        last  -> "sparks",
+        age   -> "33",
+    },
+    brett -> {
+        first -> "brett", 
+        last  -> "favre",
+        age   -> "44",        
+    }  
+}
+
+
+// Create the 'app' so that we can bind
+// routes to it
+var app = web:newWebApp
+
+    ({    
+        resourceBase -> "./",    // the directory in which we should look for HTML/Javascript/CSS files
+        context -> "api",        // the application context: http://localhost:8121/context
+        port -> 8121,            // port number of the server
+        autoReload -> true       // if leola-web should scan for any file changes, if detected, will stop/start the app automatically
+    })
+
+    
+// Create our Routes
+//   We'll create a REST API and
+//   a very simple web page based on Mustache template    
+ 
+app.route
+
+    ({path -> "/api/users/{user}", methods -> ["GET"]},
+    def(context) {    
+        var user = context.pathParam("user")
+        var userStructure = users[user]
+        if userStructure==null {
+            return web:notFound()
+        }
+    
+        return web:ok().json(userStructure)
+    })
+
+    
+app.route
+
+    ({path -> "/api/users/{user}", methods -> ["DELETE"]},
+    def(context) {    
+        var user = context.pathParam("user")
+        user.remove(user)
+        return web:ok()
+    })    
+
+    
+app.route
+
+    ({path -> "/api/users/", methods -> ["GET"]},
+    def(context) {        
+        var data = {
+            "users" -> users.vals()
+        }
+        return web:ok().json(data)        
+    })
+
+    
+app.route
+
+    ({path -> "/api/users/", methods -> ["POST", "PUT"]},
+    def(context) {        
+        // get the request body as a JSON object
+        var user = context.json()
+        var userStructure = users.put(user.first, user)
+        return web:created().json(userStructure)
+    })
+
+    
+
+app.route
+
+    ({path -> "/api/ui/", methods -> ["GET"]},
+    def(context) {        
+        // run the Mustache template with the 'templateObj' data
+        // structure
+        var templateObj = {
+            // list out all of the registered users
+            "users" -> users.vals()
+        }
+        
+        return web:ok().template(templateObj, "/ui/index.html")    
+    })    
+    
+    
+    
+    
+/**
+    Generic catch-all error handler
+*/    
+app.errorHandler
+
+    (def(context, error) {
+      return web:error().json({
+            "error" -> toString(error),
+            "message" -> "Sorry, there was an internal error"
+      })  
+    })
+    
+    
+    
+/**
+    shutdown hook, invoked when the application
+    is terminated
+*/    
+app.shutdownHandler
+    
+    (def() {
+      /* close any custom resources */  
+      
+      // we'll just clear our 'database' of users
+      users.clear()
+    })
+        
+    
+/**
+    Start the application
+*/    
+app.start()

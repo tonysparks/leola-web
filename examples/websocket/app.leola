@@ -1,0 +1,35 @@
+require("lib/web", "web")
+
+var app = web:newWebApp({context -> "test"})        
+        
+/**
+    Web socket binding:
+    
+    ws://localhost:8121/test/testSocket
+*/    
+app.webSocket
+
+    ({
+        route -> "/testSocket",
+        
+        onOpen -> def(session) {
+            println("Opened socket: " + session.id())
+        },
+        
+        onClose -> def(session, reason) {
+            println("Closed socket: " + session.id())
+        },
+        
+        onMessage -> def(session, message) {
+            println("Received message from socket: " + session.id())
+            println("Message: " + message)
+                        
+            session.send("The server has heard you say: '" + message + "'")
+        },
+        
+        onError -> def(session, exception) {
+            println("Error from socket: " + session.id() + " Error: " + exception)
+        }        
+    })
+    
+app.start()

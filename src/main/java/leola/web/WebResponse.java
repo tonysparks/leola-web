@@ -38,7 +38,7 @@ import leola.vm.types.LeoObject;
  *   })
  * </pre>
  * 
- * The above will create a {@link WebResponse} with an HTTP status code of <code>200</code> and set the content type to <code>text/json</code> and appropriatly set 
+ * The above will create a {@link WebResponse} with an HTTP status code of <code>200</code> and set the content type to <code>text/json</code> and appropriately set 
  * the content length and payload.
  * 
  * @author Tony

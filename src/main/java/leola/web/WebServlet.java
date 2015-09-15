@@ -61,7 +61,7 @@ public class WebServlet extends HttpServlet {
             }
             
         })
-        .orElse(new WebResponse(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode()));
+        .orElse(new WebResponse(Response.Status.NOT_FOUND.getStatusCode()));
         
         /*
          * If we have a template, let's render the template and return that 

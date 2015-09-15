@@ -1,0 +1,17 @@
+
+// Starts a server, accepts request:
+//   GET http://localhost:8121/api/hello
+
+require("lib/web", "web")
+
+var app = web:newWebApp()
+
+    
+app.route
+
+    ({path -> "/api/hello"},
+    def(context) {            
+        return web:ok().text("Hello World")
+    })
+
+app.start()

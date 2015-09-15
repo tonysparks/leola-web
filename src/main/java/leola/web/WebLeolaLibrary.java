@@ -35,11 +35,14 @@ import com.google.gson.JsonPrimitive;
  */
 public class WebLeolaLibrary implements LeolaLibrary {
     
+    private Leola runtime;
+    
     /* (non-Javadoc)
      * @see leola.vm.lib.LeolaLibrary#init(leola.vm.Leola, leola.vm.types.LeoNamespace)
      */
     @Override
     public void init(Leola leola, LeoNamespace namespace) throws Exception {
+        this.runtime = leola;
         leola.putIntoNamespace(this, namespace);
     }
 
@@ -51,7 +54,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
      * @return the {@link WebApp}
      */
     public WebApp newWebApp(LeoMap config) {
-        WebApp app = new WebApp(config);
+        WebApp app = new WebApp(this.runtime, config);
         return app;
     }
     

@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.logging.Logger;
 
-
 import javax.servlet.DispatcherType;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -21,14 +20,18 @@ import javax.websocket.server.ServerEndpointConfig;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-
+import leola.frontend.listener.EventDispatcher;
+import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoInteger;
 import leola.vm.types.LeoMap;
 import leola.vm.types.LeoObject;
 import leola.vm.types.LeoString;
 import leola.web.RoutingTable.Route;
-
+import leola.web.filewatcher.FileModifiedEvent;
+import leola.web.filewatcher.FileModifiedEvent.ModificationType;
+import leola.web.filewatcher.FileModifiedListener;
+import leola.web.filewatcher.FileWatcher;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.DefaultHandler;
@@ -51,6 +54,12 @@ import org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainer
 public class WebApp {
         
     /**
+     * The bounded Leola runtime
+     */
+   // private Leola runtime;
+    
+    
+    /**
      * The routing table
      */
     private RoutingTable routes;
@@ -67,9 +76,17 @@ public class WebApp {
     
     private Optional<LeoObject> errorHandler;
     private Optional<LeoObject> contextHandler;
+    private Optional<LeoObject> shutdownHandler;
     
     private List<ServerEndpointConfig> webSocketConfigs;
     
+    /**
+     * For Auto-Reload enabled applications, this will
+     * watch the Resource Directory for any leola scripts to
+     * be reloaded
+     */
+    private FileWatcher fileWatcher;
+        
     /**
      * The supplied configuration should have properties:
      * 
@@ -81,12 +98,14 @@ public class WebApp {
      *   }
      * </pre>
      * 
+     * @param runtime
      * @param suppliedConfig
      */
-    public WebApp(LeoMap suppliedConfig) {
+    public WebApp(final Leola runtime, LeoMap suppliedConfig) {    
         this.routes = new RoutingTable();
         this.errorHandler = Optional.empty();
         this.contextHandler = Optional.empty();
+        this.shutdownHandler = Optional.empty();                
         
         this.webSocketConfigs = new ArrayList<ServerEndpointConfig>();
         
@@ -99,19 +118,94 @@ public class WebApp {
             }
         });
         
-        if(suppliedConfig == null) {
-            config = new LeoMap();
+        config = (suppliedConfig==null) ? new LeoMap() : suppliedConfig;
+        
+        if(!config.containsKeyByString("resourceBase"))  
             config.putByString("resourceBase", LeoString.valueOf("/"));
+        
+        if(!config.containsKeyByString("context")) 
             config.putByString("context", LeoString.valueOf(""));
+        
+        if(!config.containsKeyByString("root")) 
             config.putByString("root", LeoString.valueOf("/"));
+        
+        if(!config.containsKeyByString("welcomeFile")) 
             config.putByString("welcomeFile", LeoString.valueOf("index.html"));
-            config.putByString("port", LeoInteger.valueOf(8556));
-        }
-        else {
-            config = suppliedConfig;
-        }
+        
+        if(!config.containsKeyByString("port")) 
+            config.putByString("port", LeoInteger.valueOf(8121));
+        
+        
+        initializeWatcher(runtime);
     }
 
+    
+    /**
+     * Initializes the {@link FileWatcher} if enabled.
+     * 
+     * @param runtime
+     */
+    private void initializeWatcher(final Leola runtime) {
+        EventDispatcher eventDispatcher = new EventDispatcher();
+        
+        final File executionScript = runtime.getExecutionScript() != null ? 
+                                        runtime.getExecutionScript() : 
+                                        runtime.getWorkingDirectory();
+        
+        
+        this.fileWatcher = new FileWatcher(eventDispatcher, getRootDirectory(), executionScript.getParentFile());
+        
+        /* If we have autoReload enabled, let's go ahead and register
+         * a FileModificationListener so that we can reload our application
+         */
+        if(config.containsKeyByString("autoReload") && runtime.getExecutionScript() != null ) {
+            
+            if(LeoObject.isTrue(config.getByString("autoReload"))) {
+                eventDispatcher.addEventListener(FileModifiedEvent.class, new FileModifiedListener() {
+                    
+                    @Override
+                    public void onFileModified(FileModifiedEvent event) {                        
+                        if( event.getModType().equals(ModificationType.MODIFIED)) {
+
+                            File file = event.getFile();
+                            if(file.isFile() && file.getName().toLowerCase().endsWith(".leola")) {
+                                try {
+                                    System.out.println("Restarting the server.");
+                                    
+                                    System.out.println("Shutdown of current server.");
+                                    shutdown();
+                                    System.out.println("Shutdown complete.");
+                                    
+                                    System.out.println("Starting new server.");
+                                    
+                                    /* Spawn in a new thread so that we actually
+                                     * return from this function call -- the executionScript
+                                     * blocks because it spawns the web-server
+                                     */
+                                    new Thread( () -> {
+                                        try {
+                                            LeoObject result = runtime.eval(executionScript);
+                                            if(result.isError()) {
+                                                System.out.println("Error restarting: " + result);
+                                            }    
+                                        }
+                                        catch(Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }, "leola-web-app-thread").start();
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    }
+                });
+                this.fileWatcher.startWatching();                
+            }
+        }
+    }
+    
     /**
      * @return the root directory as to where the web application is installed.  In general, this is used
      * for various modules to start looking for files
@@ -137,6 +231,17 @@ public class WebApp {
         return this.routes.getRoute(request.getMethod(), request.getRequestURI());
     }
     
+    /**
+     * Bind a shutdown handler function.  The supplied function will be invoked when the system shuts down,
+     * this allows the application code to safely free and close opened resources.
+     * 
+     * @param function
+     * @return the supplied function
+     */
+    public LeoObject shutdownHandler(LeoObject function) {
+        this.shutdownHandler = Optional.ofNullable(function);
+        return function;
+    }
     
     /**
      * Bind an error handler function.  The supplied function will be invoked whenever an Exception or
@@ -262,61 +367,61 @@ public class WebApp {
      * 
      * @throws Exception
      */
-    public void start() throws Exception {        
-        String resourceBase = config.getString("resourceBase");
-        String context = config.getString("context");
-        String root = config.getString("root");
-        String welcomeFile = config.getString("welcomeFile");
-        int port = config.getInt("port");
-        
-        WebAppContext servletContext = new WebAppContext();
-        servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.useFileMappedBuffer", "false");
-        servletContext.setContextPath("/" + context );
-        servletContext.setResourceBase( resourceBase );
-        
-        ServletHolder leolaServlet = new ServletHolder(new WebServlet(this));
-        servletContext.addServlet(leolaServlet, "/*" );
-
-        
-        // Filter for multipart 
-        FilterHolder filterHolder = new FilterHolder(new MultiPartFilter());
-        filterHolder.setInitParameter("deleteFiles", "true");
-        servletContext.addFilter(filterHolder, "/" + root, EnumSet.allOf(DispatcherType.class));
-                            
-        servletContext.setWelcomeFiles(new String[] { welcomeFile });
-        
-        
-        ResourceHandler resourceContext = new ResourceHandler();
-        resourceContext.setResourceBase(resourceBase);
-        resourceContext.setDirectoriesListed(true);
-        
-                
-        HandlerList handlers = new HandlerList();
-        handlers.addHandler(servletContext);
-        handlers.addHandler(resourceContext);               
-        handlers.addHandler(new DefaultHandler());
-        
-        this.server = new Server(port);
-        this.server.setHandler(handlers);
-
-
-        
-        /* This adds the example web socket server endpoint         
-         */
-        if(!this.webSocketConfigs.isEmpty()) {
-            ServerContainer wscontainer = WebSocketServerContainerInitializer.configureContext(servletContext);
-            this.webSocketConfigs.forEach(config -> {
-                try {
-                    wscontainer.addEndpoint(config);
-                }
-                catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
+    public void start() throws Exception {      
+        if(this.server == null || this.server.isStopped()) {
+            String resourceBase = config.getString("resourceBase");
+            String context = config.getString("context");
+            String root = config.getString("root");
+            String welcomeFile = config.getString("welcomeFile");
+            int port = config.getInt("port");
+            
+            WebAppContext servletContext = new WebAppContext();
+            servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.useFileMappedBuffer", "false");
+            servletContext.setContextPath("/" + context );
+            servletContext.setResourceBase( resourceBase );
+            
+            ServletHolder leolaServlet = new ServletHolder(new WebServlet(this));
+            servletContext.addServlet(leolaServlet, "/*" );
+    
+            FilterHolder filterHolder = new FilterHolder(new MultiPartFilter());
+            filterHolder.setInitParameter("deleteFiles", "true");
+            servletContext.addFilter(filterHolder, "/" + root, EnumSet.allOf(DispatcherType.class));
+                                
+            servletContext.setWelcomeFiles(new String[] { welcomeFile });
+            
+            
+            ResourceHandler resourceContext = new ResourceHandler();
+            resourceContext.setResourceBase(resourceBase);
+            resourceContext.setDirectoriesListed(true);
+            
+                    
+            HandlerList handlers = new HandlerList();
+            handlers.addHandler(servletContext);
+            handlers.addHandler(resourceContext);               
+            handlers.addHandler(new DefaultHandler());
+            
+            this.server = new Server(port);
+            this.server.setHandler(handlers);
+    
+    
+            
+            /* This adds the example web socket server endpoint         
+             */
+            if(!this.webSocketConfigs.isEmpty()) {
+                ServerContainer wscontainer = WebSocketServerContainerInitializer.configureContext(servletContext);
+                this.webSocketConfigs.forEach(config -> {
+                    try {
+                        wscontainer.addEndpoint(config);
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+    
+            this.server.start();
+            this.server.join();
         }
-
-        this.server.start();
-        this.server.join();
     }
     
     /**
@@ -324,15 +429,27 @@ public class WebApp {
      * 
      * @throws Exception
      */
-    public void shutdown() throws Exception {
+    public void shutdown() {        
+        this.fileWatcher.stopWatching();
         this.webSocketConfigs.clear();
         
-        if ( this.server != null) {
-            try {
-                this.server.stop();
-            }
-            finally {
-                this.server.destroy();
+        try {
+            this.shutdownHandler.ifPresent( function -> function.call() ); 
+        }
+        finally {
+            /* This will always ensure that we terminate the server
+             * if it is currently running, regardless of if the 
+             * user supplied shutdown handler fails or not.
+             */
+            
+            if (this.server != null && this.server.isRunning()) {
+                try {
+                    try { this.server.stop(); }
+                    catch(Exception ignore) {}
+                }
+                finally {
+                    this.server.destroy();
+                }
             }
         }
     }
