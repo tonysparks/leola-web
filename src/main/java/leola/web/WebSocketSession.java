@@ -106,7 +106,7 @@ public class WebSocketSession {
     
     @Override
     public String toString() {
-        return "\"" + id() + "\"";
+        return id();
     }
     
     

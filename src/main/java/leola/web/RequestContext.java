@@ -5,10 +5,13 @@ package leola.web;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Enumeration;
+import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaMethod;
 import leola.vm.types.LeoArray;
 import leola.vm.types.LeoMap;
@@ -38,6 +41,8 @@ public class RequestContext {
     private LeoMap contents;
     private LeoMap pathParams;
 
+    private WebSession session;
+    
     /**
      * @param request
      * @param response
@@ -53,6 +58,25 @@ public class RequestContext {
         this.contents = new LeoMap();
     }
 
+    
+    /**
+     * Retrieves the {@link WebSession} for this request.
+     * 
+     * @param create
+     * @return the {@link WebSession}
+     */
+    public WebSession session(Boolean create) {
+        if(this.session == null) {
+            if(create==null) {
+                create = true;
+            }
+            
+            this.session = new WebSession(this.request.getSession(create));
+        }
+        
+        return (this.session);
+    }
+    
     /**
      * Allows to index into this object for a content in leola code
      * 
@@ -102,6 +126,30 @@ public class RequestContext {
         return this.response;
     }
     
+    /**
+     * Attempts to parse the 'Authorization' header for Basic Authorization.
+     * 
+     * @return the {@link BasicAuthCredentials} if present
+     */
+    @LeolaIgnore
+    public Optional<BasicAuthCredentials> parseBasicAuth() {
+        return BasicAuthCredentials.fromRequest(this.request);
+    }
+    
+    /**
+     * Attempts to parse the 'Authorization' header for Basic Authorization.
+     * 
+     * @return a {@link LeoMap} with 'username' and 'password' properties
+     */
+    public LeoMap auth() {
+        Optional<BasicAuthCredentials> auth = parseBasicAuth();
+        return auth.map(b -> {
+            LeoMap result = new LeoMap();
+            result.putByString("username", LeoString.valueOf(b.getUsername()));
+            result.putByString("password", LeoString.valueOf(b.getPassword()));
+            return result;
+        }).orElse(new LeoMap());
+    }
     
     /**
      * Gets the body of the request as a JSON payload
@@ -160,6 +208,48 @@ public class RequestContext {
         }
         
         return LeoNull.LEONULL;
+    }
+    
+    
+    /**
+     * Get a request parameter by name
+     * 
+     * @param name the name of the request parameter
+     * @return the request parameter value
+     */
+    public String param(String name) {
+        return request().getParameter(name);
+    }
+    
+    /**
+     * If a request parameter has multiple values, this will return all of the values in
+     * an array.
+     * 
+     * @param name the request parameter name
+     * @return the request parameter values
+     */
+    public LeoArray params(String name) {
+        String[] params = request().getParameterValues(name);
+        LeoArray result = new LeoArray();
+        if(params!=null) {
+            for(int i = 0; i < params.length; i++) {
+                result.add(LeoString.valueOf(params[i]));
+            }
+        }
+        return result;
+    }
+    
+    
+    /**
+     * @return all of the request parameter names
+     */
+    public LeoArray paramNames() {
+        Enumeration<String> e = request().getParameterNames();
+        LeoArray params = new LeoArray();
+        while(e.hasMoreElements()) {
+            params.add(LeoString.valueOf(e.nextElement()));
+        }
+        return params;
     }
     
     
@@ -226,5 +316,17 @@ public class RequestContext {
      */
     public WebApp webapp() {
         return this.webapp;
+    }
+    
+    @Override
+    public String toString() {
+        LeoMap obj = new LeoMap();
+        obj.putByString("contents", this.contents);
+        obj.putByString("pathParams", this.pathParams);
+        obj.putByString("params", LeoObject.valueOf(this.request.getParameterMap()));
+        obj.putByString("method", LeoString.valueOf(this.request.getMethod()));
+        obj.putByString("requestUri", LeoString.valueOf(this.request.getRequestURI()));
+        
+        return obj.toString();
     }
 }

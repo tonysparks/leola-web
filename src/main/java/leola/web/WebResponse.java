@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
@@ -15,6 +16,10 @@ import javax.ws.rs.core.Response.Status;
 
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoObject;
+
+import com.github.mustachejava.DefaultMustacheFactory;
+import com.github.mustachejava.Mustache;
+import com.github.mustachejava.MustacheFactory;
 
 /**
  * An HTTP response to be sent back to the client.  A response will contain:
@@ -53,16 +58,19 @@ public class WebResponse {
     private String characterEncoding;
     private int status;
     
-    private Object result;
-    private String templatePath;
-    private boolean isTemplate;
+    private Optional<Object> result;
+    private Optional<String> templatePath;
+    private Optional<String> redirectUrl;
     
     /**
      * @param result the payload result
      * @param status the http status
      */
     public WebResponse(LeoObject result, int status) {
-        this.result = result;
+        this.result = Optional.ofNullable(result);
+        this.templatePath = Optional.empty();
+        this.redirectUrl = Optional.empty();
+        
         this.status = status;
         this.headers = new MultivaluedMapImpl();
         this.cookies = new ArrayList<Cookie>();
@@ -83,32 +91,72 @@ public class WebResponse {
     
     private WebResponse obj(LeoObject obj) {
         String json = obj.toString();
-        result = json;
+        result = Optional.ofNullable(json);
         contentLength = json.getBytes().length;
         return this;
     }
     
+    
+    /**
+     * Sets a header value
+     * 
+     * @param name the name of the header
+     * @param value the value of the header
+     * @return this {@link WebResponse} instance for method chaining
+     */
     public WebResponse header(String name, String value) {
         headers.add(name, value);
         return this;
     }
     
+    
+    /**
+     * Sets a cookie value
+     * 
+     * @param name the name of the cookie
+     * @param value the value of the cookie
+     * @return this {@link WebResponse} instance for method chaining
+     */
     public WebResponse cookie(String name, String value) {
         Cookie cookie = new Cookie(name, value);        
         cookies.add(cookie);
         return this;
     }
     
+    /**
+     * Add's a new {@link Cookie}, which is a more robust way of adding 
+     * a cookie to the HTTP response (you can set domain, maxAge, etc.).
+     * 
+     * @param cookie
+     * @return this {@link WebResponse} instance for method chaining
+     */
     public WebResponse addCookie(Cookie cookie) {
         cookies.add(cookie);
         return this;
     }
     
+    
+    /**
+     * Set the HTTP response character encoding.  As a default <code>UTF-8</code>
+     * is used.
+     * 
+     * @param encoding
+     * @return this {@link WebResponse} instance for method chaining
+     */
     public WebResponse characterEncoding(String encoding) {
         characterEncoding = encoding;
         return this;
     }
     
+    
+    /**
+     * Interpret the supplied object as a JSON payload and set the content
+     * type to <code>text/json</code>
+     * 
+     * 
+     * @param obj the json payload
+     * @return this {@link WebResponse} instance for method chaining
+     */
     public WebResponse json(LeoObject obj) {
         contentType = "text/json";
         return obj(obj);
@@ -124,11 +172,32 @@ public class WebResponse {
         return obj(obj);
     }
     
-    public WebResponse template(Object templateValues, String templateFile) {
-        result = templateValues;
-        contentType = "text/html";
-        isTemplate = true;
-        templatePath = templateFile;
+    
+    /**
+     * Issues a 301 redirect.
+     * 
+     * @param path - the redirect URL
+     * @return this {@link WebResponse} instance for method chaining
+     */
+    public WebResponse redirect(String path) {
+        this.redirectUrl = Optional.ofNullable(path);
+        return this;
+    }
+    
+    
+    /**
+     * This will return a templated file (for example a mustache enabled html file) that will
+     * use the supplied 'templateValues' to populate the template.  The leola-web framework will 
+     * return the resulting templated file as the HTTP response.
+     * 
+     * @param templateValues
+     * @param templateFile
+     * @return this {@link WebResponse} instance for method chaining
+     */
+    public WebResponse template(String templateFile, Object templateValues) {
+        result = Optional.ofNullable(templateValues);
+        templatePath = Optional.ofNullable(templateFile);
+        contentType = "text/html";        
         return this;
     }
     
@@ -136,21 +205,42 @@ public class WebResponse {
      * @return the templatePath
      */    
     public String getTemplatePath() {
-        return templatePath;
+        return templatePath.orElse("");
+    }
+    
+    /**
+     * @return the redirectUrl
+     */
+    public String getRedirectUrl() {
+        return redirectUrl.orElse("");
+    }
+    
+    /**
+     * @return true if there is a result body attached to this {@link WebResponse}
+     */
+    public boolean hasResult() {
+        return this.result.isPresent();
     }
     
     /**
      * @return the result
      */    
     public Object getResult() {
-        return result;
+        return result.orElse(null);
     }
     
     /**
      * @return the isTemplate
      */    
     public boolean hasTemplate() {
-        return isTemplate;
+        return templatePath.isPresent();
+    }
+    
+    /**
+     * @return if this is a redirect
+     */
+    public boolean isRedirect() {
+        return this.redirectUrl.isPresent();
     }
     
     /**
@@ -161,7 +251,24 @@ public class WebResponse {
      * @throws IOException
      */
     @LeolaIgnore
-    public void packageResponse(final HttpServletResponse resp) throws IOException {
+    public void packageResponse(final WebApp webapp, final HttpServletResponse resp) throws IOException {
+        
+        /*
+         * If we have a template, let's render the template and return that 
+         * as the response
+         */
+        if(hasTemplate()) {
+            /* TODO - Move this logic out of here, delegate to a Template engine
+             * interface, so that Mustache isn't hard-coded.
+             */
+            MustacheFactory mf = new DefaultMustacheFactory(webapp.getRootDirectory());
+            
+            Mustache mustache = mf.compile(getTemplatePath());            
+            Object result = getResult();
+            mustache.execute(resp.getWriter(), result);
+        }
+        
+        
         headers.forEach((key, values) -> {
             values.forEach(value -> resp.addHeader(key, value) );            
         });
@@ -174,13 +281,19 @@ public class WebResponse {
         resp.setCharacterEncoding(characterEncoding);
         resp.setStatus(status);
         
-        /* Do not write to the outputstream if we do not have a 
-         * result OR we have a Template
-         */
-        PrintWriter writer = resp.getWriter();
-        if(result != null && !hasTemplate()) {            
-            writer.println(result);            
+
+        if(isRedirect()) {
+            resp.sendRedirect(resp.encodeRedirectURL(getRedirectUrl()));
         }
-        writer.flush();
+        else {
+            /* Do not write to the outputstream if we do not have a 
+             * result OR we have a Template
+             */
+            PrintWriter writer = resp.getWriter();
+            if(result.isPresent() && !hasTemplate()) {            
+                writer.println(result.get());            
+            }
+            writer.flush();
+        }
     }
 }

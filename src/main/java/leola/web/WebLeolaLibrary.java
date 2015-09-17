@@ -96,6 +96,15 @@ public class WebLeolaLibrary implements LeolaLibrary {
         return new WebResponse(Status.INTERNAL_SERVER_ERROR);
     }
  
+    /**
+     * Issue a redirect
+     * 
+     * @param url
+     * @return the {@link WebResponse} configured for a redirect
+     */
+    public WebResponse redirect(String url) {
+        return new WebResponse(Status.MOVED_PERMANENTLY).redirect(url);
+    }
     
     /**
      * Constructs a {@link WebResponse} with the supplied status HTTP code.

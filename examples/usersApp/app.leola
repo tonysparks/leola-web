@@ -91,7 +91,7 @@ app.route
             "users" -> users.vals()
         }
         
-        return web:ok().template(templateObj, "/ui/index.html")    
+        return web:ok().template("/ui/index.html", templateObj)    
     })    
     
     

@@ -13,10 +13,6 @@ import javax.ws.rs.core.Response;
 
 import leola.vm.types.LeoObject;
 
-import com.github.mustachejava.DefaultMustacheFactory;
-import com.github.mustachejava.Mustache;
-import com.github.mustachejava.MustacheFactory;
-
 
 /**
  * Servlet that handles the Web to Java to Leola relationships.
@@ -63,20 +59,7 @@ public class WebServlet extends HttpServlet {
         })
         .orElse(new WebResponse(Response.Status.NOT_FOUND.getStatusCode()));
         
-        /*
-         * If we have a template, let's render the template and return that 
-         * as the response
-         */
-        if(webResponse.hasTemplate()) {
-            MustacheFactory mf = new DefaultMustacheFactory(webapp.getRootDirectory());
-            
-            Mustache mustache = mf.compile(webResponse.getTemplatePath());            
-            Object result = webResponse.getResult();
-            mustache.execute(resp.getWriter(), result);
-        }
-        
-
-        webResponse.packageResponse(resp);
+        webResponse.packageResponse(this.webapp, resp);
     }
 
 }

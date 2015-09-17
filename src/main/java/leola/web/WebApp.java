@@ -79,6 +79,7 @@ public class WebApp {
     private Optional<LeoObject> shutdownHandler;
     
     private List<ServerEndpointConfig> webSocketConfigs;
+    private List<WebFilter> filters;
     
     /**
      * For Auto-Reload enabled applications, this will
@@ -108,6 +109,7 @@ public class WebApp {
         this.shutdownHandler = Optional.empty();                
         
         this.webSocketConfigs = new ArrayList<ServerEndpointConfig>();
+        this.filters = new ArrayList<WebFilter>();
         
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
@@ -121,7 +123,7 @@ public class WebApp {
         config = (suppliedConfig==null) ? new LeoMap() : suppliedConfig;
         
         if(!config.containsKeyByString("resourceBase"))  
-            config.putByString("resourceBase", LeoString.valueOf("/"));
+            config.putByString("resourceBase", LeoString.valueOf(runtime.getExecutionScript().getParentFile().getAbsolutePath()));
         
         if(!config.containsKeyByString("context")) 
             config.putByString("context", LeoString.valueOf(""));
@@ -352,6 +354,18 @@ public class WebApp {
     }
     
     /**
+     * Add's a {@link WebFilter} to this server's configuration.
+     * 
+     * @param config
+     * @param function
+     * @return the passed in configuration
+     */
+    public LeoObject filter(LeoMap config, LeoObject function) {
+        this.filters.add(new WebFilter(this, config, function));
+        return config;
+    }
+    
+    /**
      * Get the {@link Logger}
      * 
      * @param name
@@ -386,7 +400,12 @@ public class WebApp {
             FilterHolder filterHolder = new FilterHolder(new MultiPartFilter());
             filterHolder.setInitParameter("deleteFiles", "true");
             servletContext.addFilter(filterHolder, "/" + root, EnumSet.allOf(DispatcherType.class));
-                                
+            
+            for(WebFilter filter : this.filters) {
+                FilterHolder holder = new FilterHolder(filter);    
+                servletContext.addFilter(holder, filter.getPathSpec(), EnumSet.allOf(DispatcherType.class));
+            }
+            
             servletContext.setWelcomeFiles(new String[] { welcomeFile });
             
             
@@ -403,8 +422,6 @@ public class WebApp {
             this.server = new Server(port);
             this.server.setHandler(handlers);
     
-    
-            
             /* This adds the example web socket server endpoint         
              */
             if(!this.webSocketConfigs.isEmpty()) {

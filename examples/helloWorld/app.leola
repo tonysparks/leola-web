@@ -6,7 +6,6 @@ require("lib/web", "web")
 
 var app = web:newWebApp()
 
-    
 app.route
 
     ({path -> "/api/hello"},

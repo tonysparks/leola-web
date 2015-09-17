@@ -1,0 +1,42 @@
+
+// Starts a server, accepts request:
+
+
+require("lib/web", "web")
+
+var app = web:newWebApp({autoReload->true})
+
+
+// This filter will run for any request to the web server starting with '/api/',
+// the filter can either allow the request to proceed to a Route OR it can
+// deny the request (which means it would never reach the Route). 
+app.filter
+
+    ({path -> "/api/*"},
+    def(context) {
+        
+        // check the basic authentication
+        var auth = context.auth()
+        if auth.username == "tony" && auth.password == "sparks" {
+            /* we have the correct credentials, allow
+               this request to go thru */
+            return true;
+        }
+        
+        // If the client did not specify valid Basic Auth credentials,
+        // do not proceed with the request, instead return 
+        // an HTTP unauthorized response
+        return web:unauthorized().json({message->"Invalid Credentials"})
+    })    
+
+
+//   GET http://localhost:8121/api/hello    
+app.route
+
+    ({path -> "/api/hello"},
+    def(context) {            
+        return web:ok().text("Hello World")
+    })
+   
+    
+app.start()
