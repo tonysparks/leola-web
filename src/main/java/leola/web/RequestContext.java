@@ -4,7 +4,6 @@
 package leola.web;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Enumeration;
 import java.util.Optional;
 
@@ -15,16 +14,8 @@ import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaMethod;
 import leola.vm.types.LeoArray;
 import leola.vm.types.LeoMap;
-import leola.vm.types.LeoNull;
 import leola.vm.types.LeoObject;
 import leola.vm.types.LeoString;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 
 /**
  * The Request context contains all the information from a http request/response cycle.
@@ -148,7 +139,12 @@ public class RequestContext {
             result.putByString("username", LeoString.valueOf(b.getUsername()));
             result.putByString("password", LeoString.valueOf(b.getPassword()));
             return result;
-        }).orElse(new LeoMap());
+        }).orElseGet( () -> {
+        	LeoMap result = new LeoMap();
+            result.putByString("username", LeoString.valueOf(""));
+            result.putByString("password", LeoString.valueOf(""));
+            return result;
+        });
     }
     
     /**
@@ -157,59 +153,9 @@ public class RequestContext {
      * @return the body of the request as a JSON payload, represented as a {@link LeoObject}
      * @throws IOException
      */
-    public LeoObject json() throws IOException {
-        Gson gson = new GsonBuilder().create();        
-        JsonElement element = gson.fromJson(new InputStreamReader(this.request.getInputStream()), JsonElement.class);
-        return toLeoObject(element);
+    public LeoObject json() throws IOException {        
+        return WebLeolaLibrary.fromJson(this.request.getInputStream());
     }
-    
-    
-    /**
-     * Converts the {@link JsonElement} into the equivalent {@link LeoObject}
-     * 
-     * @param element
-     * @return the {@link LeoObject}
-     */
-    private LeoObject toLeoObject(JsonElement element) {
-        if(element==null||element.isJsonNull()) {
-            return LeoNull.LEONULL;
-        }
-        
-        if(element.isJsonArray()) {
-            JsonArray array = element.getAsJsonArray();
-            LeoArray leoArray = new LeoArray(array.size());
-            array.forEach(e -> leoArray.add(toLeoObject(e)));
-            return leoArray;
-        }
-        
-        if(element.isJsonObject()) {
-            JsonObject object = element.getAsJsonObject();
-            LeoMap leoMap = new LeoMap();
-            object.entrySet().forEach( entry -> {
-                leoMap.putByString(entry.getKey(), toLeoObject(entry.getValue()));
-            });
-            
-            return leoMap;
-        }
-        
-        if(element.isJsonPrimitive()) {
-            JsonPrimitive primitive = element.getAsJsonPrimitive();
-            if(primitive.isBoolean()) {
-                return LeoObject.valueOf(primitive.getAsBoolean());
-            }
-            
-            if(primitive.isNumber()) {
-                return LeoObject.valueOf(primitive.getAsDouble());
-            }
-            
-            if(primitive.isString()) {
-                return LeoString.valueOf(primitive.getAsString());
-            }
-        }
-        
-        return LeoNull.LEONULL;
-    }
-    
     
     /**
      * Get a request parameter by name

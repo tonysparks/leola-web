@@ -148,6 +148,12 @@ public class WebLeolaLibrary implements LeolaLibrary {
         return toLeoObject(element);
     }
     
+    /**
+     * Converts the {@link JsonElement} into the equivalent {@link LeoObject}
+     * 
+     * @param element
+     * @return the {@link LeoObject}
+     */
     private static LeoObject toLeoObject(JsonElement element) {
         if(element==null||element.isJsonNull()) {
             return LeoNull.LEONULL;

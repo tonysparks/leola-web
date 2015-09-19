@@ -122,9 +122,15 @@ public class WebApp {
         
         config = (suppliedConfig==null) ? new LeoMap() : suppliedConfig;
         
-        if(!config.containsKeyByString("resourceBase"))  
-            config.putByString("resourceBase", LeoString.valueOf(runtime.getExecutionScript().getParentFile().getAbsolutePath()));
-        
+        if(!config.containsKeyByString("resourceBase")) {
+        	File executionScript = runtime.getExecutionScript();
+        	if(executionScript != null) {
+        		config.putByString("resourceBase", LeoString.valueOf(executionScript.getParentFile().getAbsolutePath()));
+        	}
+        	else {
+        		config.putByString("resourceBase", LeoString.valueOf(runtime.getWorkingDirectory()));
+        	}
+        }
         if(!config.containsKeyByString("context")) 
             config.putByString("context", LeoString.valueOf(""));
         
