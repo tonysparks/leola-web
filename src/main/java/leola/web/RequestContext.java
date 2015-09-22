@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.Enumeration;
 import java.util.Optional;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -49,6 +50,78 @@ public class RequestContext {
         this.contents = new LeoMap();
     }
 
+    /**
+     * Gives header value from the request
+     * 
+     * @param header the header to retrieve
+     * @return the header value 
+     */
+    public String header(String header) {
+        return this.request.getHeader(header);
+    }
+    
+    /**
+     * Get the header value from the request as an integer
+     * 
+     * @param header the header to retrieve
+     * @return the header value
+     */
+    public int headerAsInt(String header) {
+        return this.request.getIntHeader(header);
+    }
+    
+    
+    /**
+     * Get the header values from the request
+     * @param header the header to retrieve
+     * @return a list of values associated to the header
+     */
+    public LeoArray headers(String header) {
+        LeoArray headers = new LeoArray();
+        Enumeration<String> e = this.request.getHeaders(header);
+        while(e.hasMoreElements()) {
+            headers.add(LeoString.valueOf(e.nextElement()));
+        }
+        return headers;
+    }
+    
+    /**
+     * Retrieve all of the headers
+     * 
+     * @return all of the headers
+     */
+    public LeoArray headerNames() {
+        LeoArray headers = new LeoArray();
+        Enumeration<String> e = this.request.getHeaderNames();
+        while(e.hasMoreElements()) {
+            headers.add(LeoString.valueOf(e.nextElement()));
+        }
+        return headers;
+    }
+    
+    
+    /**
+     * Get a cookie value for the supplied cookie name 
+     * 
+     * @param name the cookie name
+     * @return the cookie value
+     */
+    public String cookieValue(String name) {
+        for(Cookie c : this.request.getCookies()) {
+            if(c.getName().equals(name)) {
+                return c.getValue(); 
+            }
+        }
+        return null;
+    }
+    
+    
+    /**
+     * @return all of the cookies stored with this request
+     */
+    public Cookie[] cookies() {
+        return this.request.getCookies();
+    }
     
     /**
      * Retrieves the {@link WebSession} for this request.
