@@ -6,6 +6,7 @@ package leola.web;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
 
 import javax.ws.rs.core.Response.Status;
 
@@ -192,6 +193,18 @@ public class WebLeolaLibrary implements LeolaLibrary {
         }
         
         return LeoNull.LEONULL;
+    }
+    
+    /**
+     * @return the host name of the server this application is running on
+     */
+    public String hostname() {
+        try { 
+            return InetAddress.getLocalHost().getHostName(); 
+        }
+        catch(Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
 

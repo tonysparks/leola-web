@@ -150,6 +150,17 @@ public class WebResponse {
     
     
     /**
+     * Set the "Accept" content type header.
+     * 
+     * @param contentType
+     * @return this {@link WebResponse} instance for method chaining
+     */
+    public WebResponse contentType(String contentType) {
+        this.contentType = contentType;
+        return this;
+    }
+    
+    /**
      * Interpret the supplied object as a JSON payload and set the content
      * type to <code>text/json</code>
      * 
@@ -180,7 +191,7 @@ public class WebResponse {
      * @return this {@link WebResponse} instance for method chaining
      */
     public WebResponse redirect(String path) {
-        this.redirectUrl = Optional.ofNullable(path);
+        this.redirectUrl = Optional.ofNullable(path);        
         return this;
     }
     

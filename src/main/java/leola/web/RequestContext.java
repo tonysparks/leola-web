@@ -164,7 +164,22 @@ public class RequestContext {
      * @return the request parameter value
      */
     public String param(String name) {
-        return request().getParameter(name);
+        return param(name, null);
+    }
+    
+    /**
+     * Get a request parameter by name
+     * 
+     * @param name the name of the request parameter
+     * @param defaultValue the default value to use, if the supplied parameter doesn't exist
+     * @return the request parameter value
+     */
+    public String param(String name, String defaultValue) {
+        String value = request().getParameter(name);
+        if(value==null) {
+            return defaultValue;
+        }
+        return value;
     }
     
     /**
