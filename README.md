@@ -4,6 +4,25 @@ An embedded web server and web framework for the Leola Programming Language.
 Why should you use this?
 You probably shouldn't.  There are more robust and feature complete web frameworks out there (Flask, Rails, etc.).  If you still feel like using leola-web, please read on.  I believe there are some cool features that make developing web sites and/or REST API's relatively painless and dare I say fun.
 
+Hello World
+====
+A simple Hello World application.
+
+````javascript
+require("lib/web", "web")
+
+var app = web:newWebApp()
+
+app.route
+
+    ({path -> "/hello"},
+    def(context) {            
+        return web:ok().text("Hello World")
+    })
+
+app.start()
+````
+
 Creating the Application
 ====
 Create a WebApp that allows you to bind HTTP request URL's (i.e., Routes) to functions.
