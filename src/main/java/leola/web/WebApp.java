@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import leola.frontend.listener.EventDispatcher;
 import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
+import leola.vm.types.LeoArray;
 import leola.vm.types.LeoInteger;
 import leola.vm.types.LeoLong;
 import leola.vm.types.LeoMap;
@@ -40,6 +41,7 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.webapp.WebAppContext;
+import org.junit.Ignore;
 
 /**
  * A {@link WebApp} is an instance of a web application. A {@link WebApp} contains
@@ -243,6 +245,61 @@ public class WebApp {
         return new File(config.getString("resourceBase"));
     }
     
+    
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return the supplied function
+     */
+    public WebApp get(String path, LeoObject function) {
+        return route(path, "GET", function);
+    }
+    
+    public WebApp post(String path, LeoObject function) {
+        return route(path, "POST", function);
+    }
+    
+    public WebApp delete(String path, LeoObject function) {
+        return route(path, "DELETE", function);
+    }
+    
+    public WebApp put(String path, LeoObject function) {
+        return route(path, "PUT", function);
+    }
+    
+    public WebApp head(String path, LeoObject function) {
+        return route(path, "HEAD", function);
+    }
+    public WebApp options(String path, LeoObject function) {
+        return route(path, "OPTIONS", function);
+    }
+    public WebApp trace(String path, LeoObject function) {
+        return route(path, "TRACE", function);
+    }
+    
+    
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param method the request method 
+     * @param function the function to execute
+     * @return the supplied function
+     */    
+    @Ignore
+    public WebApp route(String path, String method, LeoObject function) {
+        LeoMap config = new LeoMap();
+        config.putByString("path", LeoString.valueOf(path));
+        config.putByString("methods", LeoArray.toLeoArray(LeoString.valueOf(method)));
+        return route(config, function);
+    }
+    
+    
+    
     /**
      * Binds a {@link URI} with the supplied {@link LeoObject} function.
      * 
@@ -250,9 +307,9 @@ public class WebApp {
      * @param function
      * @return the supplied function so that it can be assigned in the Leola script
      */
-    public LeoObject route(LeoMap config, LeoObject function) {
+    public WebApp route(LeoMap config, LeoObject function) {
        this.routes.addRoute(new Route(config, function)); 
-       return function;
+       return this;
     }
     
     /**
@@ -263,7 +320,7 @@ public class WebApp {
      * @return the {@link LeoObject} representation of the supplied function
      */
     @LeolaIgnore
-    public LeoObject route(String path, Function<RequestContext, WebResponse> function) {
+    public WebApp route(String path, Function<RequestContext, WebResponse> function) {
         LeoMap config = new LeoMap();
         config.putByString("path", LeoString.valueOf(path));
         return route(config, new LeoUserFunction() {
@@ -288,9 +345,9 @@ public class WebApp {
      * @param function
      * @return the supplied function
      */
-    public LeoObject shutdownHandler(LeoObject function) {
+    public WebApp shutdownHandler(LeoObject function) {
         this.shutdownHandler = Optional.ofNullable(function);
-        return function;
+        return this;
     }
     
     /**
@@ -300,9 +357,9 @@ public class WebApp {
      * @param function
      * @return the supplied function
      */
-    public LeoObject errorHandler(LeoObject function) {
+    public WebApp errorHandler(LeoObject function) {
         this.errorHandler = Optional.ofNullable(function);
-        return function;
+        return this;
     }
     
     
@@ -315,9 +372,9 @@ public class WebApp {
      * @param function
      * @return the supplied function
      */
-    public LeoObject contextHandler(LeoObject function) {
+    public WebApp contextHandler(LeoObject function) {
         this.contextHandler = Optional.ofNullable(function);
-        return function;
+        return this;
     }
     
     
@@ -381,9 +438,9 @@ public class WebApp {
      * @param config
      * @return the passed in configuration
      */
-    public LeoObject webSocket(LeoMap config) {
+    public WebApp webSocket(LeoMap config) {
         this.webSocketConfigs.add(config);
-        return config;
+        return this;
     }
     
     /**
@@ -393,9 +450,9 @@ public class WebApp {
      * @param function
      * @return the passed in configuration
      */
-    public LeoObject filter(LeoMap config, LeoObject function) {
+    public WebApp filter(LeoMap config, LeoObject function) {
         this.filters.add(new WebFilter(this, config, function));
-        return config;
+        return this;
     }
     
     /**
