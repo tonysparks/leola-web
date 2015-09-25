@@ -8,9 +8,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 
-import javax.ws.rs.core.Response.Status;
-
 import leola.vm.Leola;
+import leola.vm.exceptions.LeolaRuntimeException;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaLibrary;
 import leola.vm.lib.LeolaMethod;
@@ -42,7 +41,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
      * @see leola.vm.lib.LeolaLibrary#init(leola.vm.Leola, leola.vm.types.LeoNamespace)
      */
     @Override
-    public void init(Leola leola, LeoNamespace namespace) throws Exception {
+    public void init(Leola leola, LeoNamespace namespace) throws LeolaRuntimeException {
         this.runtime = leola;
         leola.putIntoNamespace(this, namespace);
     }
@@ -61,40 +60,40 @@ public class WebLeolaLibrary implements LeolaLibrary {
     
     
     public WebResponse ok() {
-        return new WebResponse(Status.OK);
+        return new WebResponse(HttpStatus.OK);
     }
     public WebResponse noContent() {
-        return new WebResponse(Status.NO_CONTENT);
+        return new WebResponse(HttpStatus.NO_CONTENT);
     }
     public WebResponse created() {
-        return new WebResponse(Status.CREATED);
+        return new WebResponse(HttpStatus.CREATED);
     }
     public WebResponse accepted() {
-        return new WebResponse(Status.ACCEPTED);
+        return new WebResponse(HttpStatus.ACCEPTED);
     }
     
     public WebResponse notModified() {
-        return new WebResponse(Status.NOT_MODIFIED);
+        return new WebResponse(HttpStatus.NOT_MODIFIED);
     }
     public WebResponse notFound() {
-        return new WebResponse(Status.NOT_FOUND);
+        return new WebResponse(HttpStatus.NOT_FOUND);
     }
     public WebResponse notAcceptable() {
-        return new WebResponse(Status.NOT_ACCEPTABLE);
+        return new WebResponse(HttpStatus.NOT_ACCEPTABLE);
     }
     public WebResponse unauthorized() {
-        return new WebResponse(Status.UNAUTHORIZED);
+        return new WebResponse(HttpStatus.UNAUTHORIZED);
     }
     public WebResponse badRequest() {
-        return new WebResponse(Status.BAD_REQUEST);
+        return new WebResponse(HttpStatus.BAD_REQUEST);
     }
     public WebResponse forbidden() {
-        return new WebResponse(Status.FORBIDDEN);
+        return new WebResponse(HttpStatus.FORBIDDEN);
     }    
     
     
     public WebResponse serverError() {
-        return new WebResponse(Status.INTERNAL_SERVER_ERROR);
+        return new WebResponse(HttpStatus.INTERNAL_SERVER_ERROR);
     }
  
     /**
@@ -104,7 +103,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
      * @return the {@link WebResponse} configured for a redirect
      */
     public WebResponse redirect(String url) {
-        return new WebResponse(Status.MOVED_PERMANENTLY).redirect(url);
+        return new WebResponse(HttpStatus.MOVED_PERMANENTLY).redirect(url);
     }
     
     /**

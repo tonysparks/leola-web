@@ -22,7 +22,15 @@ public class WebIT {
 
 	@Test
 	public void test() throws Exception {
-		Args args = new Args.ArgsBuilder().setIsDebugMode(true).build();
+	    File file = new File("examples/upload/app.leola");
+        if(!file.exists()) {
+            throw new FileNotFoundException(file.getAbsolutePath());
+        }
+	    
+		Args args = new Args.ArgsBuilder()
+		                    .setIsDebugMode(true)
+		                    .setFileName(file.getAbsolutePath())
+		                    .build();
 		Leola runtime = new Leola(args);
 		
 		// override the 'require', so that we don't
@@ -36,10 +44,7 @@ public class WebIT {
 		
 		runtime.loadLibrary(new WebLeolaLibrary(), "web");
 		
-		File file = new File("examples/filter/app.leola");
-		if(!file.exists()) {
-			throw new FileNotFoundException(file.getAbsolutePath());
-		}
+		
 		
 		LeoObject result = runtime.eval(file);
 		if(result.isError()) {

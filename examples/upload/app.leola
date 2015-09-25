@@ -1,0 +1,33 @@
+require("lib/web", "web")
+
+var app = web:newWebApp({autoReload->true})
+
+
+//   POST http://localhost:8121/upload
+app.route
+
+    ({path -> "/upload", methods->["POST"]},
+    def(context) {         
+        // save any attached files to the "/temp" directory
+        var filesUploaded = context.save(app.rootDir() + "/temp")
+        
+        
+        var results = []
+        
+        // assert we downloaded the file        
+        filesUploaded.foreach(def(f) {
+            println("uploaded: " + f.getName() + " (" + f.length()/1024L + " KiB)" )
+            
+            
+            f.delete() // delete the file, so we don't clutter up our project
+            
+            results += f.getName()
+        })
+        
+        return web:ok().json({
+            "filesUploaded" -> results
+        })
+    })
+   
+    
+app.start()

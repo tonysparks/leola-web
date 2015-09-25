@@ -3,13 +3,15 @@
  */
 package leola.web;
 
-import javax.websocket.RemoteEndpoint.Basic;
-import javax.websocket.SendHandler;
-import javax.websocket.SendResult;
-import javax.websocket.Session;
+
 
 import leola.vm.Leola;
+import leola.vm.types.LeoNull;
 import leola.vm.types.LeoObject;
+
+import org.eclipse.jetty.websocket.api.RemoteEndpoint;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 
 /**
  * A thin wrapper around the {@link Session}.  This just makes integration with {@link Leola} more convenient.
@@ -20,16 +22,18 @@ import leola.vm.types.LeoObject;
 public class WebSocketSession {
 
     private Session session;
+    private String id;
     
     /**
      * @param session
      */
-    public WebSocketSession(Session session) {
+    public WebSocketSession(String id, Session session) {
+        this.id = id;
         this.session = session;        
     }
 
     public void setMaxIdleTimeoutMSec(long timeout) {
-        this.session.setMaxIdleTimeout(timeout);
+        this.session.setIdleTimeout(timeout);
     }
     
     public Session getSession() {
@@ -41,7 +45,7 @@ public class WebSocketSession {
     }
     
     public String id() {
-        return this.session.getId();
+        return this.id;
     }
     
     public WebSocketSession close() throws Exception {
@@ -50,18 +54,29 @@ public class WebSocketSession {
     }
     
     public WebSocketSession send(String message) throws Exception {
-        Basic client = this.session.getBasicRemote();
-        client.sendText(message);
+        RemoteEndpoint client = this.session.getRemote();
+        client.sendString(message);
         return this;
     }
     
-    public WebSocketSession asyncSend(String message, final LeoObject callback) throws Exception {
-        this.session.getAsyncRemote().sendText(message, new SendHandler() {
+    public WebSocketSession asyncSend(String message, final LeoObject callback) throws Exception {        
+        RemoteEndpoint client = this.session.getRemote();
+        client.sendString(message, new WriteCallback() {
             
             @Override
-            public void onResult(SendResult result) {
+            public void writeSuccess() {
                 if(callback != null) {
-                    LeoObject res = callback.call(LeoObject.valueOf(result.isOK() ? null : result.getException()));
+                    LeoObject res = callback.call(LeoNull.LEONULL);
+                    if(res.isError()) {                
+                        throw new RuntimeException(res.toString());
+                    }
+                }
+            }
+            
+            @Override
+            public void writeFailed(Throwable x) {
+                if(callback != null) {
+                    LeoObject res = callback.call(LeoObject.valueOf(x));
                     if(res.isError()) {                
                         throw new RuntimeException(res.toString());
                     }

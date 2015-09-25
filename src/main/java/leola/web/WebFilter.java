@@ -119,7 +119,7 @@ public class WebFilter implements Filter {
         /* If we don't want to filter this request, lets continue on in the chain,
          * otherwise we stop
          */
-        if(allow) {
+        if(allow && chain != null) {
             chain.doFilter(request, response);
         }
     }

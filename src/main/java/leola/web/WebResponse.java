@@ -3,7 +3,13 @@
  */
 package leola.web;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +17,6 @@ import java.util.Optional;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response.Status;
 
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoObject;
@@ -51,8 +55,15 @@ import com.github.mustachejava.MustacheFactory;
  */
 public class WebResponse {
 
-    private MultivaluedMap<String, String> headers;
+    static class StreamEntry {
+        InputStream stream;
+        Optional<File> file;        
+    }
+    
+    private MultivaluedMap headers;
     private List<Cookie> cookies;
+    private List<String> deletedCookies;
+    
     private String contentType;
     private int contentLength;
     private String characterEncoding;
@@ -62,6 +73,10 @@ public class WebResponse {
     private Optional<String> templatePath;
     private Optional<String> redirectUrl;
     
+    private Optional<StreamEntry> stream;
+    
+    
+    
     /**
      * @param result the payload result
      * @param status the http status
@@ -70,10 +85,12 @@ public class WebResponse {
         this.result = Optional.ofNullable(result);
         this.templatePath = Optional.empty();
         this.redirectUrl = Optional.empty();
+        this.stream = Optional.empty();
         
         this.status = status;
-        this.headers = new MultivaluedMapImpl();
+        this.headers = new MultivaluedMap();
         this.cookies = new ArrayList<Cookie>();
+        this.deletedCookies = new ArrayList<String>();
         this.characterEncoding = "UTF-8";        
     }
 
@@ -81,11 +98,11 @@ public class WebResponse {
         this(null, status);
     }
     
-    public WebResponse(Status status) {
+    public WebResponse(HttpStatus status) {
         this(null, status.getStatusCode());
     }
     
-    public WebResponse(LeoObject result, Status status) {
+    public WebResponse(LeoObject result, HttpStatus status) {
         this(result, status.getStatusCode());
     }
     
@@ -94,6 +111,13 @@ public class WebResponse {
         result = Optional.ofNullable(json);
         contentLength = json.getBytes().length;
         return this;
+    }
+    
+    /**
+     * @return the HTTP status code
+     */
+    public int status() {
+        return this.status;
     }
     
     
@@ -135,6 +159,28 @@ public class WebResponse {
         return this;
     }
     
+    /**
+     * Deletes the supplied cookie from the client.
+     * 
+     * @param name
+     * @return this {@link WebResponse} instance for method chaining
+     */
+    public WebResponse removeCookie(String name) {
+        deletedCookies.add(name);
+        return this;
+    }
+    
+    /**
+     * Removes the cookie from the response
+     * 
+     * @param response
+     * @param name
+     */
+    private void removeCookie(HttpServletResponse response, String name) {
+        Cookie cookie = new Cookie(name, "");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+    }
     
     /**
      * Set the HTTP response character encoding.  As a default <code>UTF-8</code>
@@ -192,6 +238,40 @@ public class WebResponse {
      */
     public WebResponse redirect(String path) {
         this.redirectUrl = Optional.ofNullable(path);        
+        return this;
+    }
+
+    /**
+     * Stream back a series of bytes back as a response.
+     * 
+     * @param iStream the {@link InputStream}
+     * @param mimeType the mime type of the stream
+     * @return this {@link WebResponse} instance for method chaining
+     */
+    public WebResponse stream(InputStream iStream, String mimeType) {
+        StreamEntry entry = new StreamEntry();
+        entry.stream = iStream;
+        if(mimeType!=null) {
+            this.contentType = mimeType;
+        }
+        
+        this.stream = Optional.ofNullable(entry);
+        return this;
+    }
+    
+    /**
+     * Stream back a file as a response.
+     * 
+     * @param filePath the path to the file to stream back
+     * @param mimeType the mime type of the file
+     * @return this {@link WebResponse} instance for method chaining
+     * @throws FileNotFoundException
+     */
+    public WebResponse file(String filePath, String mimeType) throws FileNotFoundException {
+        Optional<File> file = Optional.ofNullable(new File(filePath));
+        stream(new BufferedInputStream(new FileInputStream(file.get())), mimeType);
+        this.stream.ifPresent(s -> s.file = file);
+        
         return this;
     }
     
@@ -277,17 +357,18 @@ public class WebResponse {
             Mustache mustache = mf.compile(getTemplatePath());            
             Object result = getResult();
             mustache.execute(resp.getWriter(), result);
-        }
-        
+        }                
         
         headers.forEach((key, values) -> {
             values.forEach(value -> resp.addHeader(key, value) );            
         });
         
         cookies.forEach(cookie -> resp.addCookie(cookie));
+        deletedCookies.forEach(name -> removeCookie(resp, name));
+        
         resp.setContentType(contentType);
         if(contentLength > 0) {
-            resp.setContentLength(contentLength);
+            resp.setContentLength(contentLength + 2);
         }
         resp.setCharacterEncoding(characterEncoding);
         resp.setStatus(status);
@@ -300,11 +381,39 @@ public class WebResponse {
             /* Do not write to the outputstream if we do not have a 
              * result OR we have a Template
              */
-            PrintWriter writer = resp.getWriter();
-            if(result.isPresent() && !hasTemplate()) {            
-                writer.println(result.get());            
+            
+            if(result.isPresent() && !hasTemplate()) {
+                PrintWriter writer = resp.getWriter();
+                writer.println(result.get());
+                writer.flush();
             }
-            writer.flush();
+            else if(stream.isPresent()) {
+                StreamEntry entry = stream.get();
+                if(contentType==null) {
+                    resp.setContentType("application/octet-stream");
+                }
+                
+                entry.file.ifPresent(file -> {
+                    resp.setContentLengthLong(file.length());
+                    String headerKey = "Content-Disposition";
+                    String headerValue = String.format("attachment; filename=\"%s\"", file.getName());
+                    resp.setHeader(headerKey, headerValue);
+                });
+             
+                OutputStream oStream = resp.getOutputStream();
+                
+                try {
+                    Util.copy(entry.stream, oStream);
+                }
+                finally {
+                    entry.stream.close();
+                }
+                
+            }            
+            else {
+                resp.getWriter().flush();
+            }
+            
         }
     }
 }

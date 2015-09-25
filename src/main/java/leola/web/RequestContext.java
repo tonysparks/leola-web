@@ -3,13 +3,20 @@
  */
 package leola.web;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.Enumeration;
 import java.util.Optional;
 
+import javax.servlet.ServletException;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.Part;
 
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaMethod;
@@ -104,7 +111,7 @@ public class RequestContext {
      * Get a cookie value for the supplied cookie name 
      * 
      * @param name the cookie name
-     * @return the cookie value
+     * @return the cookie value, or null if none is bound to the name
      */
     public String cookieValue(String name) {
         for(Cookie c : this.request.getCookies()) {
@@ -115,6 +122,19 @@ public class RequestContext {
         return null;
     }
     
+    /**
+     * Get the {@link Cookie} for the supplied cookie name 
+     * @param name the cookie name
+     * @return the cookie, or null if none is bound to the name
+     */
+    public Cookie cookie(String name) {
+        for(Cookie c : this.request.getCookies()) {
+            if(c.getName().equals(name)) {
+                return c; 
+            }
+        }
+        return null;
+    }
     
     /**
      * @return all of the cookies stored with this request
@@ -140,6 +160,70 @@ public class RequestContext {
         
         return (this.session);
     }
+    
+    /**
+     * Determines if the request is an AJAX call or not -- most javascript API's use this
+     * header to denote an AJAX call.
+     * 
+     * <p>
+     * There is no sure way to determine this, so this really relies upon the client to
+     * correctly set the <code>x-requested-with</code> header with a value of <code>XMLHttpRequest</code>.
+     * 
+     * @return true if we can determine this is an ajax call.
+     */
+    public boolean isAjax() {
+        String requestedWith = this.request.getHeader("x-requested-with"); 
+        return requestedWith != null && requestedWith.equalsIgnoreCase("XMLHttpRequest");
+    }
+    
+    /**
+     * Attempt to retrieve the <code>User-Agent</code> header
+     * @return the User-Agent header value, may be null if not defined in the request.
+     */
+    public String userAgent() {
+        return header("User-Agent");
+    }
+    
+    
+    /**
+     * The content length (i.e., the number of bytes this request body contains).
+     * 
+     * @return the number of bytes this request body contains.
+     */
+    public int contentLength() {
+        return this.request.getContentLength();
+    }
+    
+    /**
+     * The request query string.
+     * 
+     * @see HttpServletRequest#getQueryString()
+     * @return the query string of the request.
+     */
+    public String queryString() {
+        return this.request.getQueryString();
+    }
+    
+    
+    /**
+     * The request path information.
+     * 
+     * @see HttpServletRequest#getPathInfo()
+     * @return the request path information
+     */
+    public String pathInfo() {
+        return this.request.getPathInfo();
+    }
+    
+    /**
+     * @return the request character encoding format.  If none was defined, it will assume <code>UTF-8</code>
+     */
+    public String encoding() {
+        String charset = this.request.getCharacterEncoding();
+        return charset!=null&&charset.isEmpty() ? charset : "UTF-8";
+    }
+    
+
     
     /**
      * Allows to index into this object for a content in leola code
@@ -218,6 +302,111 @@ public class RequestContext {
             result.putByString("password", LeoString.valueOf(""));
             return result;
         });
+    }
+    
+    /**
+     * @param name the name of the {@link Part}
+     * @return the {@link Part} if this is a <code>multipart/form-data</code> request; otherwise null.
+     */
+    public Part part(String name) {
+        try {
+            return this.request.getPart(name);
+        }
+        catch(Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * @return attempts to return all of the {@link Part} data if and only if this is a 
+     * <code>multipart/form-data</code> request.
+     */
+    public LeoArray parts() {
+        LeoArray results = new LeoArray();
+        try {
+            for(Part part :this.request.getParts()) {
+                results.add(LeoObject.valueOf(part));
+            }
+        }
+        catch(Exception ignore) {            
+        }
+        
+        return results;
+    }
+    
+    /**
+     * Attempts to save any {@link Part}'s to the specified directory.
+     * 
+     * @param directory the directory in which to save the files to
+     * @return the array of {@link File}'s that were saved
+     * @throws IOException
+     */
+    public LeoArray save(String directory) throws IOException {
+        LeoArray result = new LeoArray();
+        try {
+            File parentFolder = new File(directory);
+            if(!parentFolder.exists()) {
+                if(!parentFolder.mkdirs()) {
+                    throw new IOException("Unable to create directory structure: " + directory);
+                }
+            }
+            
+            for(Part part :this.request.getParts()) {
+                String filename = Util.getFileName(part);
+                File file = new File(parentFolder, filename);                                
+                Util.writeFile(file, part.getInputStream());
+
+                result.add(LeoObject.valueOf(file));
+            }
+        }
+        catch (ServletException ignore) {
+            // not a multipart/form-data request
+        }
+        
+        return result;        
+    }
+    
+    
+    /**
+     * Copies the request {@link InputStream} into a {@link ByteArrayOutputStream}
+     * 
+     * @return the {@link ByteArrayOutputStream}
+     * @throws IOException
+     */
+    private ByteArrayOutputStream asStream() throws IOException {
+        int knownLength = this.request.getContentLength();
+        if(knownLength < 1) {
+            knownLength = 1024 * 2;
+        }
+        
+        ByteArrayOutputStream oStream = new ByteArrayOutputStream(knownLength);
+        ServletInputStream iStream = this.request.getInputStream();
+        Util.copy(iStream, oStream);
+        
+        return oStream;
+    }
+    
+    /**
+     * Get the request body as raw bytes.
+     * 
+     * @return the request body as raw bytes
+     * @throws IOException
+     */
+    public ByteBuffer body() throws IOException {
+        ByteArrayOutputStream oStream = asStream();        
+        return ByteBuffer.wrap(oStream.toByteArray());
+    }
+    
+    /**
+     * Get the request body as text.  This will use the {@link RequestContext#encoding()} from the request type to
+     * encode the {@link String} returned.
+     * 
+     * @return the String representing this request body
+     * @throws IOException
+     */
+    public String text() throws IOException {
+        ByteArrayOutputStream oStream = asStream();
+        return oStream.toString(encoding());
     }
     
     /**

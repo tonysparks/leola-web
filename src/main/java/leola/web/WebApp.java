@@ -10,23 +10,23 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 import javax.servlet.DispatcherType;
+import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.websocket.server.ServerContainer;
-import javax.websocket.server.ServerEndpointConfig;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import leola.frontend.listener.EventDispatcher;
 import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoInteger;
+import leola.vm.types.LeoLong;
 import leola.vm.types.LeoMap;
 import leola.vm.types.LeoObject;
 import leola.vm.types.LeoString;
+import leola.vm.types.LeoUserFunction;
 import leola.web.RoutingTable.Route;
 import leola.web.filewatcher.FileModifiedEvent;
 import leola.web.filewatcher.FileModifiedEvent.ModificationType;
@@ -39,10 +39,7 @@ import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.servlets.MultiPartFilter;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.eclipse.jetty.websocket.jsr356.server.BasicServerEndpointConfig;
-import org.eclipse.jetty.websocket.jsr356.server.deploy.WebSocketServerContainerInitializer;
 
 /**
  * A {@link WebApp} is an instance of a web application. A {@link WebApp} contains
@@ -56,7 +53,7 @@ public class WebApp {
     /**
      * The bounded Leola runtime
      */
-   // private Leola runtime;
+    private Leola runtime;
     
     
     /**
@@ -78,7 +75,7 @@ public class WebApp {
     private Optional<LeoObject> contextHandler;
     private Optional<LeoObject> shutdownHandler;
     
-    private List<ServerEndpointConfig> webSocketConfigs;
+    private List<LeoMap> webSocketConfigs;
     private List<WebFilter> filters;
     
     /**
@@ -108,7 +105,7 @@ public class WebApp {
         this.contextHandler = Optional.empty();
         this.shutdownHandler = Optional.empty();                
         
-        this.webSocketConfigs = new ArrayList<ServerEndpointConfig>();
+        this.webSocketConfigs = new ArrayList<LeoMap>();
         this.filters = new ArrayList<WebFilter>();
         
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -133,16 +130,25 @@ public class WebApp {
         }
         if(!config.containsKeyByString("context")) 
             config.putByString("context", LeoString.valueOf(""));
-        
-        if(!config.containsKeyByString("root")) 
-            config.putByString("root", LeoString.valueOf("/"));
-        
+                
         if(!config.containsKeyByString("welcomeFile")) 
             config.putByString("welcomeFile", LeoString.valueOf("index.html"));
         
         if(!config.containsKeyByString("port")) 
             config.putByString("port", LeoInteger.valueOf(8121));
         
+        if(!config.containsKeyByString("multiPart")) {
+            LeoMap multipart = new LeoMap();
+            config.putByString("multiPart", multipart);
+        }
+        
+        LeoMap multipart = config.getByString("multiPart").as();
+        if(!multipart.containsKeyByString("maxFileSize")) {
+            multipart.putByString("maxFileSize", LeoLong.valueOf(1024 * 1024 * 100));
+        }
+        if(!multipart.containsKeyByString("maxRequestSize")) {
+            multipart.putByString("maxRequestSize", LeoLong.valueOf(1024 * 1024 * 200));
+        }
         
         initializeWatcher(runtime);
     }
@@ -215,6 +221,21 @@ public class WebApp {
     }
     
     /**
+     * @return the {@link Leola} runtime bound to this {@link WebApp}
+     */
+    public Leola getRuntime() {
+        return this.runtime;
+    }
+    
+    /**
+     * @see WebApp#getRootDirectory()
+     * @return the root directory's absolute path
+     */
+    public String rootDir() {
+        return getRootDirectory().getAbsolutePath();
+    }
+    
+    /**
      * @return the root directory as to where the web application is installed.  In general, this is used
      * for various modules to start looking for files
      */
@@ -233,6 +254,27 @@ public class WebApp {
        this.routes.addRoute(new Route(config, function)); 
        return function;
     }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return the {@link LeoObject} representation of the supplied function
+     */
+    @LeolaIgnore
+    public LeoObject route(String path, Function<RequestContext, WebResponse> function) {
+        LeoMap config = new LeoMap();
+        config.putByString("path", LeoString.valueOf(path));
+        return route(config, new LeoUserFunction() {
+           
+            @Override
+            public LeoObject call(LeoObject[] args) {
+                return LeoObject.valueOf(function.apply((RequestContext) args[0].getValue(RequestContext.class)));
+            } 
+        });
+    }
+    
     
     @LeolaIgnore
     public Optional<Route> getRoute(HttpServletRequest request) {
@@ -293,11 +335,11 @@ public class WebApp {
         return this.errorHandler.map(function -> {
             LeoObject result = function.call(requestContext, LeoObject.valueOf(exception));
             if(result.isError()) {
-                return new WebResponse(result, Status.INTERNAL_SERVER_ERROR);
+                return new WebResponse(result, HttpStatus.INTERNAL_SERVER_ERROR);
             }
             
             return (WebResponse) result.getValue(WebResponse.class);
-        }).orElse(new WebResponse(Response.Status.INTERNAL_SERVER_ERROR));
+        }).orElse(new WebResponse(HttpStatus.INTERNAL_SERVER_ERROR));
     }
     
     /**
@@ -340,22 +382,7 @@ public class WebApp {
      * @return the passed in configuration
      */
     public LeoObject webSocket(LeoMap config) {
-        ServerEndpointConfig c = new BasicServerEndpointConfig(WebSocketServerEndpoint.class, config.getString("route"));
-        if(config.containsKeyByString(WebSocketServerEndpoint.ON_OPEN_KEY)) {
-            c.getUserProperties().put(WebSocketServerEndpoint.ON_OPEN_KEY, config.getByString(WebSocketServerEndpoint.ON_OPEN_KEY));
-        }
-        if(config.containsKeyByString(WebSocketServerEndpoint.ON_CLOSE_KEY)) {
-            c.getUserProperties().put(WebSocketServerEndpoint.ON_CLOSE_KEY, config.getByString(WebSocketServerEndpoint.ON_CLOSE_KEY));
-        }
-        if(config.containsKeyByString(WebSocketServerEndpoint.ON_MESSAGE_KEY)) {
-            c.getUserProperties().put(WebSocketServerEndpoint.ON_MESSAGE_KEY, config.getByString(WebSocketServerEndpoint.ON_MESSAGE_KEY));
-        }
-        if(config.containsKeyByString(WebSocketServerEndpoint.ON_ERROR_KEY)) {
-            c.getUserProperties().put(WebSocketServerEndpoint.ON_ERROR_KEY, config.getByString(WebSocketServerEndpoint.ON_ERROR_KEY));
-        }
-        
-        this.webSocketConfigs.add(c);
-        
+        this.webSocketConfigs.add(config);
         return config;
     }
     
@@ -381,6 +408,12 @@ public class WebApp {
         return Logger.getLogger(name);
     }
     
+    /**
+     * @return this {@link WebApp} configuration
+     */
+    public LeoMap config() {
+        return this.config;
+    }
     
     /**
      * Start the application
@@ -391,57 +424,51 @@ public class WebApp {
         if(this.server == null || this.server.isStopped()) {
             String resourceBase = config.getString("resourceBase");
             String context = config.getString("context");
-            String root = config.getString("root");
             String welcomeFile = config.getString("welcomeFile");
             int port = config.getInt("port");
             
+            
+            // Handles the servlet requests (routes)
             WebAppContext servletContext = new WebAppContext();
             servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.useFileMappedBuffer", "false");
             servletContext.setContextPath("/" + context );
             servletContext.setResourceBase( resourceBase );
-            
-            ServletHolder leolaServlet = new ServletHolder(new WebServlet(this));
-            servletContext.addServlet(leolaServlet, "/*" );
-    
-            FilterHolder filterHolder = new FilterHolder(new MultiPartFilter());
-            filterHolder.setInitParameter("deleteFiles", "true");
-            servletContext.addFilter(filterHolder, "/" + root, EnumSet.allOf(DispatcherType.class));
-            
-            for(WebFilter filter : this.filters) {
-                FilterHolder holder = new FilterHolder(filter);    
-                servletContext.addFilter(holder, filter.getPathSpec(), EnumSet.allOf(DispatcherType.class));
-            }
-            
             servletContext.setWelcomeFiles(new String[] { welcomeFile });
             
+            this.filters.forEach(filter -> {            
+                FilterHolder holder = new FilterHolder(filter);                 
+                servletContext.addFilter(holder, filter.getPathSpec(), EnumSet.allOf(DispatcherType.class));
+            });
             
+            
+            WebServlet webServlet = new WebServlet(this);
+            ServletHolder leolaServlet = new ServletHolder(webServlet);
+            leolaServlet.getRegistration().setMultipartConfig(new MultipartConfigElement(webServlet.getMultipartConfig()));
+            servletContext.addServlet(leolaServlet, "/*");            
+            
+            
+            // Serves up Static content
             ResourceHandler resourceContext = new ResourceHandler();
             resourceContext.setResourceBase(resourceBase);
             resourceContext.setDirectoriesListed(true);
             
-                    
+            
+            // Handles Web Sockets (if there are any)
+            LeolaWebSocketCreator.configureWebsocketContextHandler(servletContext, this.webSocketConfigs);
+                                
             HandlerList handlers = new HandlerList();
+            handlers.addHandler(resourceContext);      
             handlers.addHandler(servletContext);
-            handlers.addHandler(resourceContext);               
+                     
+                        
+            // generic 404 handler -- TODO: remove with
+            // leola function callback
             handlers.addHandler(new DefaultHandler());
+            
             
             this.server = new Server(port);
             this.server.setHandler(handlers);
-    
-            /* This adds the example web socket server endpoint         
-             */
-            if(!this.webSocketConfigs.isEmpty()) {
-                ServerContainer wscontainer = WebSocketServerContainerInitializer.configureContext(servletContext);
-                this.webSocketConfigs.forEach(config -> {
-                    try {
-                        wscontainer.addEndpoint(config);
-                    }
-                    catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-            }
-    
+        
             this.server.start();
             this.server.join();
         }

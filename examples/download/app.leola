@@ -1,0 +1,16 @@
+require("lib/web", "web")
+
+var app = web:newWebApp({autoReload->true})
+
+
+//   GET http://localhost:8121/download
+app.route
+
+    ({path -> "/download"},
+    def(context) {            
+        // stream back a file 
+        return web:ok().file(app.rootDir() + "/app.leola")
+    })
+    
+    
+app.start()
