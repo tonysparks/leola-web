@@ -41,6 +41,9 @@ var app = web:newWebApp({
     
     /* The port that this server will use */
     port -> 8121,
+    
+    /* Listen for file edits, and reload the application (should only be enabled for development) */
+    autoReload -> true,
 })
 ````
 
@@ -54,7 +57,7 @@ app.route
     ({path -> "/api/echo", methods -> ["GET"]},
     def(context) {            
         // this Route expects a parameter of 'message'
-        var message = context.request().getParameter("message")                
+        var message = context.param("message")                
         return web:ok().json({
             echo -> message
         })
@@ -66,7 +69,7 @@ app.route
    def(context) {
      // use the path parameters from the request, as an example: 
      //   GET http://localhost:8121/api/GreenBayPackers/roster
-     var team = context.pathParams("team")
+     var team = context.pathParam("team")
      if team == "GreenBayPackers" {
         return web:ok().json({
            roster -> [
@@ -105,7 +108,7 @@ response.cookie("name", "value" )
 var templateObj = {
  // add values here to be used by the template engine (mustache)
 }        
-response.template( templateObj, "/ui/index.html" ) // return back the html file (uses mustache as a template engine)
+response.template( "/ui/index.html", templateObj ) // return back the html file (uses mustache as a template engine)
 // 
 
 ````
