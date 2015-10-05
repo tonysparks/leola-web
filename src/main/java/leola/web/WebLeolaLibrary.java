@@ -16,7 +16,6 @@ import leola.vm.lib.LeolaMethod;
 import leola.vm.types.LeoArray;
 import leola.vm.types.LeoMap;
 import leola.vm.types.LeoNamespace;
-import leola.vm.types.LeoNull;
 import leola.vm.types.LeoObject;
 import leola.vm.types.LeoString;
 
@@ -156,7 +155,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
      */
     private static LeoObject toLeoObject(JsonElement element) {
         if(element==null||element.isJsonNull()) {
-            return LeoNull.LEONULL;
+            return LeoObject.NULL;
         }
         
         if(element.isJsonArray()) {
@@ -191,7 +190,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
             }
         }
         
-        return LeoNull.LEONULL;
+        return LeoObject.NULL;
     }
     
     /**

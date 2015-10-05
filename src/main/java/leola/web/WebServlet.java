@@ -5,6 +5,7 @@ package leola.web;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.util.Optional;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -75,7 +76,7 @@ public class WebServlet extends HttpServlet {
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
        
         WebResponse webResponse = this.webapp.getRoute(req).map(route -> {            
-            LeoObject context = webapp.buildContext(route, req, resp);
+            LeoObject context = webapp.buildContext(Optional.of(route), req, resp);
             try {
                 LeoObject result = route.getFunction().call(context);
                 if(result.isError()) {
@@ -89,7 +90,7 @@ public class WebServlet extends HttpServlet {
             }
             
         })
-        .orElse(new WebResponse(HttpStatus.NOT_FOUND.getStatusCode()));
+        .orElse(webapp.handle404(req, resp));
         
         webResponse.packageResponse(this.webapp, resp);        
     }

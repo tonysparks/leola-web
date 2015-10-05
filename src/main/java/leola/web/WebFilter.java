@@ -68,7 +68,7 @@ public class WebFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse)response;
         
         final Boolean allow = webapp.getRoute(httpRequest).map( route -> {            
-            LeoObject context = webapp.buildContext(route, httpRequest, httpResponse);
+            LeoObject context = webapp.buildContext(Optional.of(route), httpRequest, httpResponse);
             Optional<WebResponse> webResponse = Optional.empty();
             
             boolean allowRequest = true;

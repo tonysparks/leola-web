@@ -12,6 +12,8 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import leola.frontend.listener.EventDispatcher;
 import leola.web.filewatcher.FileModifiedEvent.ModificationType;
@@ -31,6 +33,7 @@ public class FileWatcher {
     private Thread watchThread;
     
     private EventDispatcher dispatcher;
+    private Lock lock;
     
     /**
      * @param watchDir
@@ -39,75 +42,88 @@ public class FileWatcher {
     public FileWatcher(EventDispatcher dispatcher, File ... watchDir) {
         this.dirsToWatch = Arrays.asList(watchDir);
         this.dispatcher = dispatcher;
+        this.lock = new ReentrantLock();
     }
 
     /**
      * Start watching the file system
      */
     public void startWatching() {
-        this.watchThread = new Thread( new Runnable() { 
-            
-            @SuppressWarnings("unchecked")
-            @Override
-            public void run() {
-             
-                try {
-                    watchService = FileSystems.getDefault().newWatchService();
-                    for(File dir : dirsToWatch) {
-                        Path path = dir.toPath();
-                        path.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY);
-                    }
+        try {
+            this.lock.lockInterruptibly();
+            try {
+                this.watchThread = new Thread( new Runnable() { 
                     
-                    for (;;) {
-    
-                        // wait for key to be signaled
-                        WatchKey key = null;
+                    @SuppressWarnings("unchecked")
+                    @Override
+                    public void run() {
+                     
                         try {
-                            key = watchService.take();
-                        } catch (InterruptedException x) {
-                            return;
-                        }
-    
-                        for (WatchEvent<?> event: key.pollEvents()) {                            
-                            WatchEvent.Kind<?> kind = event.kind();
-    
-                            if (kind == StandardWatchEventKinds.OVERFLOW) {
-                                continue;
+                            watchService = FileSystems.getDefault().newWatchService();
+                            for(File dir : dirsToWatch) {
+                                Path path = dir.toPath();
+                                path.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY);
                             }
-    
-                            File dirToWatch = ((Path)key.watchable()).toFile();
                             
-                            // The filename is the
-                            // context of the event.
-                            WatchEvent<Path> ev = (WatchEvent<Path>)event;
-                            Path filename = ev.context();
-                            
-                            ModificationType modType = ModificationType.REMOVED;
-                            if(kind.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
-                                modType = ModificationType.CREATED;
+                            for (;;) {
+            
+                                // wait for key to be signaled
+                                WatchKey key = null;
+                                try {
+                                    key = watchService.take();
+                                } catch (InterruptedException x) {
+                                    return;
+                                }
+            
+                                for (WatchEvent<?> event: key.pollEvents()) {                            
+                                    WatchEvent.Kind<?> kind = event.kind();
+            
+                                    if (kind == StandardWatchEventKinds.OVERFLOW) {
+                                        continue;
+                                    }
+            
+                                    File dirToWatch = ((Path)key.watchable()).toFile();
+                                    
+                                    // The filename is the
+                                    // context of the event.
+                                    WatchEvent<Path> ev = (WatchEvent<Path>)event;
+                                    Path filename = ev.context();
+                                    
+                                    ModificationType modType = ModificationType.REMOVED;
+                                    if(kind.equals(StandardWatchEventKinds.ENTRY_CREATE)) {
+                                        modType = ModificationType.CREATED;
+                                    }
+                                    else if (kind.equals(StandardWatchEventKinds.ENTRY_MODIFY)) {
+                                        modType = ModificationType.MODIFIED;
+                                    }
+                                    System.out.println("File modified: " + filename);
+                                    dispatcher.queueEvent(new FileModifiedEvent(this, new File(dirToWatch, filename.toString()), modType));
+                                }
+            
+                                dispatcher.processQueue();
+                                
+                                boolean valid = key.reset();
+                                if (!valid) {
+                                    break;
+                                }
                             }
-                            else if (kind.equals(StandardWatchEventKinds.ENTRY_MODIFY)) {
-                                modType = ModificationType.MODIFIED;
-                            }
-                            System.out.println("File modified: " + filename);
-                            dispatcher.queueEvent(new FileModifiedEvent(this, new File(dirToWatch, filename.toString()), modType));
-                        }
-    
-                        dispatcher.processQueue();
-                        
-                        boolean valid = key.reset();
-                        if (!valid) {
-                            break;
+                        }                            
+                        catch(Exception e) {
+                            e.printStackTrace();
                         }
                     }
-                }                            
-                catch(Exception e) {
-                    e.printStackTrace();
-                }
+                }, "file-watcher-thread");
+                
+                this.watchThread.start();
             }
-        }, "file-watcher-thread");
+            finally {
+                this.lock.unlock();
+            }
+        }
+        catch(InterruptedException e) {
+            /* break out */
+        }
         
-        this.watchThread.start();
         
     }
     
@@ -116,9 +132,13 @@ public class FileWatcher {
      * Stop the watcher
      */
     public void stopWatching() {
-        if(this.watchThread != null) {
-            try {                
-                this.watchService.close();
+        try {
+            this.lock.lock();
+        
+            try {   
+                if(this.watchService!=null) {
+                    this.watchService.close();
+                }
             }
             catch(Exception ignore) {                
             }
@@ -127,6 +147,9 @@ public class FileWatcher {
                 try { this.watchThread.join(); }
                 catch(Exception ignore) {}*/
             }
+        }
+        finally {
+            this.lock.unlock();
         }
     }
 }

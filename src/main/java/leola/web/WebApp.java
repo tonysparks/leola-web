@@ -22,6 +22,7 @@ import leola.frontend.listener.EventDispatcher;
 import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoArray;
+import leola.vm.types.LeoBoolean;
 import leola.vm.types.LeoInteger;
 import leola.vm.types.LeoLong;
 import leola.vm.types.LeoMap;
@@ -35,13 +36,11 @@ import leola.web.filewatcher.FileModifiedListener;
 import leola.web.filewatcher.FileWatcher;
 
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.DefaultHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.junit.Ignore;
 
 /**
  * A {@link WebApp} is an instance of a web application. A {@link WebApp} contains
@@ -51,7 +50,12 @@ import org.junit.Ignore;
  *
  */
 public class WebApp {
-        
+    
+    /**
+     * Not found web-page
+     */
+    private static final String NOT_FOUND = "<html><body><h2>404 Not found</h2></body></html>";
+    
     /**
      * The bounded Leola runtime
      */
@@ -74,6 +78,7 @@ public class WebApp {
     private LeoMap config;
     
     private Optional<LeoObject> errorHandler;
+    private Optional<LeoObject> notFoundHandler;
     private Optional<LeoObject> contextHandler;
     private Optional<LeoObject> shutdownHandler;
     
@@ -104,6 +109,7 @@ public class WebApp {
     public WebApp(final Leola runtime, LeoMap suppliedConfig) {    
         this.routes = new RoutingTable();
         this.errorHandler = Optional.empty();
+        this.notFoundHandler = Optional.empty();
         this.contextHandler = Optional.empty();
         this.shutdownHandler = Optional.empty();                
         
@@ -138,6 +144,9 @@ public class WebApp {
         
         if(!config.containsKeyByString("port")) 
             config.putByString("port", LeoInteger.valueOf(8121));
+        
+        if(!config.containsKeyByString("showDirectory")) 
+            config.putByString("showDirectory", LeoBoolean.LEOTRUE);
         
         if(!config.containsKeyByString("multiPart")) {
             LeoMap multipart = new LeoMap();
@@ -252,32 +261,58 @@ public class WebApp {
      * @see WebApp#route(LeoMap, LeoObject)
      * @param path the route path
      * @param function the function to execute
-     * @return the supplied function
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp get(String path, LeoObject function) {
         return route(path, "GET", function);
     }
     
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */
     public WebApp post(String path, LeoObject function) {
         return route(path, "POST", function);
     }
     
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */
     public WebApp delete(String path, LeoObject function) {
         return route(path, "DELETE", function);
     }
     
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */
     public WebApp put(String path, LeoObject function) {
         return route(path, "PUT", function);
     }
     
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */
     public WebApp head(String path, LeoObject function) {
         return route(path, "HEAD", function);
-    }
-    public WebApp options(String path, LeoObject function) {
-        return route(path, "OPTIONS", function);
-    }
-    public WebApp trace(String path, LeoObject function) {
-        return route(path, "TRACE", function);
     }
     
     
@@ -286,18 +321,24 @@ public class WebApp {
      * 
      * @see WebApp#route(LeoMap, LeoObject)
      * @param path the route path
-     * @param method the request method 
      * @param function the function to execute
-     * @return the supplied function
-     */    
-    @Ignore
-    public WebApp route(String path, String method, LeoObject function) {
-        LeoMap config = new LeoMap();
-        config.putByString("path", LeoString.valueOf(path));
-        config.putByString("methods", LeoArray.toLeoArray(LeoString.valueOf(method)));
-        return route(config, function);
+     * @return this {@link WebApp} instance for method chaining
+     */
+    public WebApp options(String path, LeoObject function) {
+        return route(path, "OPTIONS", function);
     }
     
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */
+    public WebApp trace(String path, LeoObject function) {
+        return route(path, "TRACE", function);
+    }
     
     
     /**
@@ -305,24 +346,135 @@ public class WebApp {
      * 
      * @param config
      * @param function
-     * @return the supplied function so that it can be assigned in the Leola script
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp route(LeoMap config, LeoObject function) {
        this.routes.addRoute(new Route(config, function)); 
        return this;
+    }    
+    
+    /**
+     * Binds the supplied {@link LeoObject} function to the supplied path.
+     * 
+     * @see WebApp#route(LeoMap, LeoObject)
+     * @param path the route path
+     * @param method the request method 
+     * @param function the function to execute
+     * @return this {@link WebApp} instance for method chaining
+     */    
+    @LeolaIgnore
+    public WebApp route(String path, String method, LeoObject function) {
+        LeoMap config = new LeoMap();
+        config.putByString("path", LeoString.valueOf(path));
+        config.putByString("methods", LeoArray.newLeoArray(LeoString.valueOf(method.toUpperCase())));
+        return route(config, function);
     }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the GET request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp get(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "GET", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the POST request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp post(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "POST", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the PUT request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp put(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "PUT", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the DELETE request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp delete(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "DELETE", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the HEAD request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp head(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "HEAD", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the OPTIONS request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp options(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "OPTIONS", function);
+    }
+    
+    /**
+     * Binds a {@link URI} with the supplied {@link LeoObject} function for the TRACE request
+     * method type.
+     * 
+     * @param path the route path
+     * @param function the function to run for the route
+     * @return this {@link WebApp} instance for method chaining
+     */
+    @LeolaIgnore
+    public WebApp trace(String path, Function<RequestContext, WebResponse> function) {
+        return route(path, "TRACE", function);
+    }
+
     
     /**
      * Binds a {@link URI} with the supplied {@link LeoObject} function.
      * 
      * @param path the route path
+     * @param method the request method
      * @param function the function to run for the route
-     * @return the {@link LeoObject} representation of the supplied function
+     * @return this {@link WebApp} instance for method chaining
      */
     @LeolaIgnore
-    public WebApp route(String path, Function<RequestContext, WebResponse> function) {
+    public WebApp route(String path, String method, Function<RequestContext, WebResponse> function) {
         LeoMap config = new LeoMap();
         config.putByString("path", LeoString.valueOf(path));
+        config.putByString("methods", LeoArray.newLeoArray(LeoString.valueOf(method.toUpperCase())));
         return route(config, new LeoUserFunction() {
            
             @Override
@@ -332,10 +484,27 @@ public class WebApp {
         });
     }
     
-    
+    /**
+     * Get the {@link Route} based on the supplied request method and request URI.
+     * 
+     * @param request the HTTP request
+     * @return the {@link Route} if a match was found
+     */
     @LeolaIgnore
     public Optional<Route> getRoute(HttpServletRequest request) {
-        return this.routes.getRoute(request.getMethod(), request.getRequestURI());
+        return getRoute(request.getMethod(), request.getRequestURI());
+    }
+    
+    /**
+     * Get the {@link Route} based on the supplied request method and request URI.
+     * 
+     * @param method the request method
+     * @param requestURI the request URI
+     * @return the {@link Route} if a match was found
+     */
+    @LeolaIgnore
+    public Optional<Route> getRoute(String method, String requestURI) {
+        return this.routes.getRoute(method, requestURI);
     }
     
     /**
@@ -343,7 +512,7 @@ public class WebApp {
      * this allows the application code to safely free and close opened resources.
      * 
      * @param function
-     * @return the supplied function
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp shutdownHandler(LeoObject function) {
         this.shutdownHandler = Optional.ofNullable(function);
@@ -355,7 +524,7 @@ public class WebApp {
      * error occurs during a Routing request.
      * 
      * @param function
-     * @return the supplied function
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp errorHandler(LeoObject function) {
         this.errorHandler = Optional.ofNullable(function);
@@ -364,19 +533,31 @@ public class WebApp {
     
     
     /**
+     * Bind a function to be invoked when a route and a static file is not found (404) error.  This allows you
+     * to customize the response.
+     * 
+     * @param function
+     * @return this {@link WebApp} instance for method chaining 
+     */
+    public WebApp notFoundHandler(LeoObject function) {
+        this.notFoundHandler = Optional.ofNullable(function);
+        return this;
+    }
+    
+    /**
      * Bind a context handler function.  The supplied function will be invoked after the creation of a 
      * {@link RequestContext}.  This allows the application to inject specific properties into the
      * request.
      * 
      * 
      * @param function
-     * @return the supplied function
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp contextHandler(LeoObject function) {
         this.contextHandler = Optional.ofNullable(function);
         return this;
     }
-    
+
     
     /**
      * Handles an exception and/or error during a request.  This will attempt to delegate the
@@ -400,6 +581,25 @@ public class WebApp {
     }
     
     /**
+     * Handles a 404 NOT found.
+     * 
+     * @return the {@link WebResponse} generated from the notFound handler
+     */
+    public WebResponse handle404(HttpServletRequest req, HttpServletResponse resp) {
+        return this.notFoundHandler.map(function -> {
+            LeoObject context = buildContext(Optional.empty(), req, resp);
+            
+            LeoObject result = function.call(context);
+            if(result.isError()) {
+                return new WebResponse(result, HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            
+            return (WebResponse) result.getValue(WebResponse.class);
+        })
+        .orElse(new WebResponse(HttpStatus.NOT_FOUND).text(LeoString.valueOf(NOT_FOUND)));
+    }
+    
+    /**
      * Builds the {@link RequestContext} off of the supplied request/response objects.
      * This will apply the registered contextHandler function if there is one.
      * 
@@ -408,10 +608,13 @@ public class WebApp {
      * @return the {@link RequestContext} as a {@link LeoObject}
      */
     @LeolaIgnore
-    public LeoObject buildContext(Route route, HttpServletRequest req, HttpServletResponse resp) {
-
-        Map<String, String> pathValues = route.getRouteParameters(req.getRequestURI());
-        LeoMap pathParams = LeoMap.toMap(pathValues);   
+    public LeoObject buildContext(Optional<Route> route, HttpServletRequest req, HttpServletResponse resp) {
+        LeoMap pathParams = new LeoMap();
+        route.ifPresent(r -> {
+            Map<String, String> pathValues = r.getRouteParameters(req.getRequestURI());
+            pathParams.putAll(LeoMap.toMap(pathValues));    
+        });
+           
         
         RequestContext context = new RequestContext(req, resp, this, pathParams);
         LeoObject leoContext = LeoObject.valueOf(context);
@@ -436,7 +639,7 @@ public class WebApp {
      * </pre>
      * 
      * @param config
-     * @return the passed in configuration
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp webSocket(LeoMap config) {
         this.webSocketConfigs.add(config);
@@ -448,7 +651,7 @@ public class WebApp {
      * 
      * @param config
      * @param function
-     * @return the passed in configuration
+     * @return this {@link WebApp} instance for method chaining
      */
     public WebApp filter(LeoMap config, LeoObject function) {
         this.filters.add(new WebFilter(this, config, function));
@@ -507,7 +710,7 @@ public class WebApp {
             // Serves up Static content
             ResourceHandler resourceContext = new ResourceHandler();
             resourceContext.setResourceBase(resourceBase);
-            resourceContext.setDirectoriesListed(true);
+            resourceContext.setDirectoriesListed(config.getBoolean("showDirectory"));
             
             
             // Handles Web Sockets (if there are any)
@@ -515,13 +718,7 @@ public class WebApp {
                                 
             HandlerList handlers = new HandlerList();
             handlers.addHandler(resourceContext);      
-            handlers.addHandler(servletContext);
-                     
-                        
-            // generic 404 handler -- TODO: remove with
-            // leola function callback
-            handlers.addHandler(new DefaultHandler());
-            
+            handlers.addHandler(servletContext);           
             
             this.server = new Server(port);
             this.server.setHandler(handlers);
@@ -544,6 +741,15 @@ public class WebApp {
             this.shutdownHandler.ifPresent( function -> function.call() ); 
         }
         finally {
+            
+            /* Ensure we clear-out the Leola runtime
+             */
+            try {
+                this.runtime.reset();
+            }
+            catch(Exception ignore) {                
+            }
+            
             /* This will always ensure that we terminate the server
              * if it is currently running, regardless of if the 
              * user supplied shutdown handler fails or not.

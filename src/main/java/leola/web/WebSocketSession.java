@@ -6,7 +6,6 @@ package leola.web;
 
 
 import leola.vm.Leola;
-import leola.vm.types.LeoNull;
 import leola.vm.types.LeoObject;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
@@ -66,7 +65,7 @@ public class WebSocketSession {
             @Override
             public void writeSuccess() {
                 if(callback != null) {
-                    LeoObject res = callback.call(LeoNull.LEONULL);
+                    LeoObject res = callback.call(LeoObject.NULL);
                     if(res.isError()) {                
                         throw new RuntimeException(res.toString());
                     }
