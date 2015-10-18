@@ -27,11 +27,10 @@ public class WebIT {
             throw new FileNotFoundException(file.getAbsolutePath());
         }
 	    
-		Args args = new Args.ArgsBuilder()
+        Leola runtime = Args.builder()
 		                    .setIsDebugMode(true)
 		                    .setFileName(file.getAbsolutePath())
-		                    .build();
-		Leola runtime = new Leola(args);
+		                    .newRuntime();
 		
 		// override the 'require', so that we don't
 		// include this lib

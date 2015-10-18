@@ -36,6 +36,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
     
     private Leola runtime;
     
+    
     /* (non-Javadoc)
      * @see leola.vm.lib.LeolaLibrary#init(leola.vm.Leola, leola.vm.types.LeoNamespace)
      */
@@ -43,6 +44,7 @@ public class WebLeolaLibrary implements LeolaLibrary {
     public void init(Leola leola, LeoNamespace namespace) throws LeolaRuntimeException {
         this.runtime = leola;
         leola.putIntoNamespace(this, namespace);
+        
     }
 
     
@@ -114,7 +116,6 @@ public class WebLeolaLibrary implements LeolaLibrary {
     public WebResponse status(int status) {
         return new WebResponse(status);
     }
-    
     
     /**
      * Converts the supplied {@link LeoObject} into a JSON {@link String}

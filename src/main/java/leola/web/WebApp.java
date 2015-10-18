@@ -4,6 +4,8 @@
 package leola.web;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.StringReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -34,6 +36,8 @@ import leola.web.filewatcher.FileModifiedEvent;
 import leola.web.filewatcher.FileModifiedEvent.ModificationType;
 import leola.web.filewatcher.FileModifiedListener;
 import leola.web.filewatcher.FileWatcher;
+import leola.web.templates.TemplateEngine;
+import leola.web.templates.mustache.MustacheTemplateEngine;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.HandlerList;
@@ -91,7 +95,13 @@ public class WebApp {
      * be reloaded
      */
     private FileWatcher fileWatcher;
-        
+    
+    
+    /**
+     * The template engine to use
+     */
+    private TemplateEngine templateEngine;
+    
     /**
      * The supplied configuration should have properties:
      * 
@@ -114,7 +124,7 @@ public class WebApp {
         this.shutdownHandler = Optional.empty();                
         
         this.webSocketConfigs = new ArrayList<LeoMap>();
-        this.filters = new ArrayList<WebFilter>();
+        this.filters = new ArrayList<WebFilter>();                
         
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
@@ -162,6 +172,9 @@ public class WebApp {
         }
         
         initializeWatcher(runtime);
+        
+        
+        this.templateEngine = new MustacheTemplateEngine(this);
     }
 
     
@@ -229,6 +242,37 @@ public class WebApp {
                 this.fileWatcher.startWatching();                
             }
         }
+    }
+    
+    
+    /**
+     * Sets the {@link TemplateEngine}
+     * 
+     * @param templateEngine
+     * @return this instance for method chaining
+     */
+    public WebApp templateEngine(TemplateEngine templateEngine) {
+        this.templateEngine = templateEngine;
+        return this;
+    }
+    
+    /**
+     * @return the {@link TemplateEngine}
+     */
+    public TemplateEngine getTemplateEngine() {
+        return this.templateEngine;
+    }
+    
+    /**
+     * A convenience method for applying the template with the supplied data
+     * 
+     * @param template the in-lined template
+     * @param data
+     * @return the resolved template
+     * @throws IOException
+     */
+    public String applyTemplate(String template, Object data) throws IOException {
+        return this.templateEngine.getTemplate(new StringReader(template)).apply(data);
     }
     
     /**

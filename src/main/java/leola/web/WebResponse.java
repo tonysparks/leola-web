@@ -20,10 +20,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoObject;
-
-import com.github.mustachejava.DefaultMustacheFactory;
-import com.github.mustachejava.Mustache;
-import com.github.mustachejava.MustacheFactory;
+import leola.web.templates.TemplateEngine;
+import leola.web.templates.TemplateEngine.TemplateDocument;
 
 /**
  * An HTTP response to be sent back to the client.  A response will contain:
@@ -344,19 +342,16 @@ public class WebResponse {
     @LeolaIgnore
     public void packageResponse(final WebApp webapp, final HttpServletResponse resp) throws IOException {
         
-        /*
-         * If we have a template, let's render the template and return that 
+        /* If we have a template, let's render the template and return that 
          * as the response
          */
-        if(hasTemplate()) {
-            /* TODO - Move this logic out of here, delegate to a Template engine
-             * interface, so that Mustache isn't hard-coded.
-             */
-            MustacheFactory mf = new DefaultMustacheFactory(webapp.getRootDirectory());
+        if(hasTemplate()) {           
             
-            Mustache mustache = mf.compile(getTemplatePath());            
+            TemplateEngine engine = webapp.getTemplateEngine();
+            TemplateDocument template = engine.getTemplate(new File(webapp.getRootDirectory(), getTemplatePath()));
+            
             Object result = getResult();
-            mustache.execute(resp.getWriter(), result);
+            template.apply(resp.getWriter(), result);
         }                
         
         headers.forEach((key, values) -> {
