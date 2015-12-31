@@ -734,7 +734,7 @@ public class WebApp {
             
             // Handles the servlet requests (routes)
             WebAppContext servletContext = new WebAppContext();
-            servletContext.setInitParameter("org.eclipse.jetty.servlet.Default.useFileMappedBuffer", "false");
+            servletContext.setInitParameter("useFileMappedBuffer", "false");
             servletContext.setContextPath("/" + context );
             servletContext.setResourceBase( resourceBase );
             servletContext.setWelcomeFiles(new String[] { welcomeFile });
@@ -752,7 +752,8 @@ public class WebApp {
             
             
             // Serves up Static content
-            ResourceHandler resourceContext = new ResourceHandler();
+            ResourceHandler resourceContext = new ResourceHandler();      
+            resourceContext.setMinMemoryMappedContentLength(-1);
             resourceContext.setResourceBase(resourceBase);
             resourceContext.setDirectoriesListed(config.getBoolean("showDirectory"));
             
