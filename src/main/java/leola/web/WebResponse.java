@@ -214,7 +214,13 @@ public class WebResponse {
      */
     public WebResponse json(LeoObject obj) {
         contentType = "text/json";
-        return obj(obj);
+        
+//        String json = Util.escapeJson(obj.toString());        
+        String json = WebLeolaLibrary.toJson(obj);
+        result = Optional.ofNullable(json);
+        contentLength = json.getBytes().length;
+        
+        return this;
     }
 
     public WebResponse html(LeoObject obj) {

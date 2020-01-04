@@ -22,7 +22,7 @@ public class WebIT {
 
 	@Test
 	public void test() throws Exception {
-	    File file = new File("examples/notFound/app.leola");
+	    File file = new File("C:\\Users\\chq-tonys\\Desktop\\scripts\\greetr\\src\\main.leola");
         if(!file.exists()) {
             throw new FileNotFoundException(file.getAbsolutePath());
         }
@@ -40,7 +40,7 @@ public class WebIT {
 				return LeoBoolean.LEOTRUE;
 			}
 		});
-		
+
 		runtime.loadLibrary(new WebLeolaLibrary(), "web");
 		
 		

@@ -14,6 +14,7 @@ import leola.vm.lib.LeolaIgnore;
 import leola.vm.lib.LeolaLibrary;
 import leola.vm.lib.LeolaMethod;
 import leola.vm.types.LeoArray;
+import leola.vm.types.LeoClass;
 import leola.vm.types.LeoMap;
 import leola.vm.types.LeoNamespace;
 import leola.vm.types.LeoObject;
@@ -23,6 +24,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
@@ -33,7 +35,7 @@ import com.google.gson.JsonPrimitive;
  *
  */
 public class WebLeolaLibrary implements LeolaLibrary {
-    
+    private static Gson gson = new GsonBuilder().create();
     private Leola runtime;
     
     
@@ -123,9 +125,8 @@ public class WebLeolaLibrary implements LeolaLibrary {
      * @param obj
      * @return the JSON string
      */
-    public static String toJson(LeoObject obj) {
-        Gson gson = new GsonBuilder().create();        
-        return gson.toJson(obj);        
+    public static String toJson(LeoObject obj) {           
+        return gson.toJson(toJsonElement(obj));    
     }
     
     /**
@@ -136,16 +137,68 @@ public class WebLeolaLibrary implements LeolaLibrary {
      */
     @LeolaMethod(alias="fromJson")
     public static LeoObject fromJson(String message) {
-        Gson gson = new GsonBuilder().create();        
         JsonElement element = gson.fromJson(message, JsonElement.class);
         return toLeoObject(element);
     }
     
     @LeolaIgnore
     public static LeoObject fromJson(InputStream iStream) throws IOException {
-        Gson gson = new GsonBuilder().create();        
         JsonElement element = gson.fromJson(new InputStreamReader(iStream), JsonElement.class);
         return toLeoObject(element);
+    }
+    
+    
+    private static JsonElement toJsonElement(LeoObject obj) {
+        if(LeoObject.isNull(obj)) {
+            return JsonNull.INSTANCE;
+        }
+        
+        if(obj.isArray()) {
+            JsonArray array = new JsonArray();
+            LeoArray leoArray = obj.as();
+            for(int i = 0; i < leoArray.size(); i++) {
+                array.add(toJsonElement(leoArray.get(i)));
+            }
+            
+            return array;
+        }
+        
+        if(obj.isMap()) {
+            JsonObject object = new JsonObject();
+            LeoMap leoMap = obj.as();
+            for(LeoObject key : leoMap.keySet()) {
+                object.add(key.toString(), toJsonElement(leoMap.get(key)));
+            }
+            
+            return object;
+        }
+        
+        if(obj.isClass()) {
+            JsonObject object = new JsonObject();
+            LeoClass leoClass = obj.as();
+            for(LeoObject key : leoClass.getPropertyNames()) {
+                String name = key.toString();
+                if(!name.equals("this")) {
+                    object.add(key.toString(), toJsonElement(leoClass.getProperty(key))); 
+                }
+            }
+            
+            return object;
+        }
+        
+        if(obj.isString()) {
+            return new JsonPrimitive(obj.toString());
+        }
+        
+        if(obj.isNumber()) {
+            return new JsonPrimitive((Number)obj.getValue());
+        }
+        
+        if(obj.isBoolean()) {
+            return new JsonPrimitive(obj.isTrue());
+        }
+        
+        return gson.toJsonTree(obj);
     }
     
     /**

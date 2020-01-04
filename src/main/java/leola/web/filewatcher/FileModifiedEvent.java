@@ -5,7 +5,8 @@ package leola.web.filewatcher;
 
 import java.io.File;
 
-import leola.frontend.listener.Event;
+import leola.web.event.Event;
+
 
 /**
  * A File has been modified (either created, deleted or the contents modified).

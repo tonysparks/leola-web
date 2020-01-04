@@ -48,9 +48,9 @@
 		
 		
 		<dependency>
-			<groupId>leola</groupId>
-			<artifactId>leola</artifactId>
-			<version>0.9.6-SNAPSHOT</version>
+			<groupId>com.github.tonysparks.leola</groupId>
+            <artifactId>leola</artifactId>
+            <version>0.10.4</version>
 			<scope>provided</scope>
 		</dependency>
 

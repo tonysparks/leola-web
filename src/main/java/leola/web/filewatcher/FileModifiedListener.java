@@ -3,8 +3,8 @@
  */
 package leola.web.filewatcher;
 
-import leola.frontend.listener.EventListener;
-import leola.frontend.listener.EventMethod;
+import leola.web.event.EventListener;
+import leola.web.event.EventMethod;
 
 /**
  * Listens for any {@link FileModifiedEvent}'s

@@ -20,7 +20,14 @@ import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import leola.frontend.listener.EventDispatcher;
+import org.eclipse.jetty.server.*;
+import org.eclipse.jetty.server.handler.HandlerList;
+import org.eclipse.jetty.server.handler.ResourceHandler;
+import org.eclipse.jetty.servlet.FilterHolder;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.webapp.WebAppContext;
+
 import leola.vm.Leola;
 import leola.vm.lib.LeolaIgnore;
 import leola.vm.types.LeoArray;
@@ -32,19 +39,13 @@ import leola.vm.types.LeoObject;
 import leola.vm.types.LeoString;
 import leola.vm.types.LeoUserFunction;
 import leola.web.RoutingTable.Route;
+import leola.web.event.EventDispatcher;
 import leola.web.filewatcher.FileModifiedEvent;
 import leola.web.filewatcher.FileModifiedEvent.ModificationType;
 import leola.web.filewatcher.FileModifiedListener;
 import leola.web.filewatcher.FileWatcher;
 import leola.web.templates.TemplateEngine;
 import leola.web.templates.mustache.MustacheTemplateEngine;
-
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.server.handler.ResourceHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.webapp.WebAppContext;
 
 /**
  * A {@link WebApp} is an instance of a web application. A {@link WebApp} contains
@@ -730,6 +731,7 @@ public class WebApp {
             String context = config.getString("context");
             String welcomeFile = config.getString("welcomeFile");
             int port = config.getInt("port");
+            LeoObject security = config.getByString("security");
             
             
             // Handles the servlet requests (routes)
@@ -767,6 +769,29 @@ public class WebApp {
             
             this.server = new Server(port);
             this.server.setHandler(handlers);
+            if(security != null && security.isMap()) {
+                LeoMap securityConfig = security.as();
+                String keyStorePath = securityConfig.getString("keyStorePath");
+                String keyStorePw = securityConfig.getString("keyStorePassword");
+                String trustStorePath = securityConfig.getString("trustStorePath");
+                String trustStorePw = securityConfig.getString("trustStorePassword");
+                String keyPassword = securityConfig.getString("keyPassword");
+                int sslPort = securityConfig.getInt("port");
+                
+                SslContextFactory sslContextFactory = new SslContextFactory();
+                sslContextFactory.setKeyStorePath(keyStorePath);
+                sslContextFactory.setKeyStorePassword(keyStorePw);
+                sslContextFactory.setTrustStorePath(trustStorePath);
+                sslContextFactory.setTrustStorePassword(trustStorePw);
+                sslContextFactory.setKeyManagerPassword(keyPassword);
+                
+                ServerConnector httpsConnector = new ServerConnector(this.server, 
+                        new SslConnectionFactory(sslContextFactory, "HTTP/1.1"),
+                        new HttpConnectionFactory());
+                
+                httpsConnector.setPort(sslPort);                 
+                this.server.addConnector(httpsConnector);
+            }
         
             this.server.start();
             this.server.join();

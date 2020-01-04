@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import leola.frontend.listener.EventDispatcher;
+import leola.web.event.EventDispatcher;
 import leola.web.filewatcher.FileModifiedEvent.ModificationType;
 
 /**

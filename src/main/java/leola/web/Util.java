@@ -23,6 +23,10 @@ public class Util {
 
     public static final int DEFAULT_BUFFER_SIZE = 1024 * 4;
     
+    public static String escapeJson(String json) {
+        return json.replace("\n", "\\n");
+    }
+    
     /**
      * Writes out a file to disk from the supplied {@link InputStream}.
      * 
