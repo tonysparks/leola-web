@@ -8,8 +8,8 @@ import java.io.*;
 import com.github.jknack.handlebars.*;
 import com.github.jknack.handlebars.io.FileTemplateLoader;
 
-import leola.vm.types.LeoMap;
-import leola.web.Util;
+import leola.vm.types.*;
+import leola.web.*;
 import leola.web.templates.TemplateEngine;
 
 /**
@@ -28,6 +28,9 @@ public class HandlebarsTemplateEngine implements TemplateEngine {
         
         @Override
         public void apply(Writer writer, Object data) throws IOException {
+            if(data instanceof LeoObject) {                
+                data = WebLeolaLibrary.toJsonJavaObject((LeoObject)data);
+            }
             this.template.apply(data, writer);
         }
     }

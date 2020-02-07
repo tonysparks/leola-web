@@ -3,30 +3,18 @@
  */
 package leola.web;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.lang.reflect.Type;
 import java.net.InetAddress;
+import java.util.*;
+
+import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 
 import leola.vm.Leola;
 import leola.vm.exceptions.LeolaRuntimeException;
-import leola.vm.lib.LeolaIgnore;
-import leola.vm.lib.LeolaLibrary;
-import leola.vm.lib.LeolaMethod;
-import leola.vm.types.LeoArray;
-import leola.vm.types.LeoClass;
-import leola.vm.types.LeoMap;
-import leola.vm.types.LeoNamespace;
-import leola.vm.types.LeoObject;
-import leola.vm.types.LeoString;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import leola.vm.lib.*;
+import leola.vm.types.*;
 
 /**
  * Library for creating web applications
@@ -147,7 +135,37 @@ public class WebLeolaLibrary implements LeolaLibrary {
         return toLeoObject(element);
     }
     
+    @LeolaIgnore
+    public static Object toJsonJavaObject(LeoObject obj) {
+        if(LeoObject.isNull(obj)) {
+            return null;
+        }
+        
+        if(obj.isString() || obj.isNumber() || obj.isBoolean()) {
+            return obj.getValue();
+        }
+        
+        // cheating for now...
+        if(obj.isArray()) {
+            Type type = new TypeToken<List<Object>>(){}.getType();
+            JsonElement elements = toJsonElement(obj);
+            return gson.fromJson(elements, type);
+        }
+        
+        if(obj.isMap()) {
+            Type type = new TypeToken<Map<String, Object>>(){}.getType();
+            JsonElement elements = toJsonElement(obj);
+            return gson.fromJson(elements, type);
+        }
+        
+        if(obj.isNativeClass()) {
+            return obj.getValue();
+        }
+        
+        return obj.getValue();   
+    }
     
+    @LeolaIgnore
     private static JsonElement toJsonElement(LeoObject obj) {
         if(LeoObject.isNull(obj)) {
             return JsonNull.INSTANCE;
@@ -196,6 +214,11 @@ public class WebLeolaLibrary implements LeolaLibrary {
         
         if(obj.isBoolean()) {
             return new JsonPrimitive(obj.isTrue());
+        }
+        
+        if(obj.isNativeClass()) {
+            LeoNativeClass nClass = obj.as();
+            return gson.toJsonTree(nClass.getInstance());
         }
         
         return gson.toJsonTree(obj);
