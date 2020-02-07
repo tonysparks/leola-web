@@ -338,10 +338,12 @@ public class RequestContext {
      * Attempts to save any {@link Part}'s to the specified directory.
      * 
      * @param directory the directory in which to save the files to
+     * @param function an optional callback function that should return a filename or null if the file 
+     * should not be stored.
      * @return the array of {@link File}'s that were saved
      * @throws IOException
      */
-    public LeoArray save(String directory) throws IOException {
+    public LeoArray save(String directory, LeoObject function) throws IOException {
         LeoArray result = new LeoArray();
         try {
             File parentFolder = new File(directory);
@@ -353,6 +355,15 @@ public class RequestContext {
             
             for(Part part :this.request.getParts()) {
                 String filename = Util.getFileName(part);
+                if(function != null) {
+                    LeoObject callbackResult = function.call(LeoObject.valueOf(part), LeoObject.valueOf(filename));
+                    if(LeoObject.isNull(callbackResult)) {
+                        continue;
+                    }
+                    
+                    filename = callbackResult.toString();
+                }
+                
                 File file = new File(parentFolder, filename);                                
                 Util.writeFile(file, part.getInputStream());
 

@@ -3,11 +3,7 @@
  */
 package leola.web;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -106,5 +102,24 @@ public class Util {
             }
         }
         return Long.toHexString(new Random().nextLong());
+    }
+    
+    
+    /**
+     * Reads the {@link Reader} as a string
+     * @param reader
+     * @return the string
+     * @throws IOException
+     */
+    public static String readString(Reader reader) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        String line = null;
+        try(BufferedReader buf = new BufferedReader(reader)) {
+            while((line = buf.readLine()) != null) {
+                sb.append(line);
+            }
+        }
+        
+        return sb.toString();
     }
 }

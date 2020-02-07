@@ -369,7 +369,7 @@ public class WebResponse {
         
         resp.setContentType(contentType);
         if(contentLength > 0) {
-            resp.setContentLength(contentLength + 2);
+            resp.setContentLength(contentLength);
         }
         resp.setCharacterEncoding(characterEncoding);
         resp.setStatus(status);

@@ -45,6 +45,7 @@ import leola.web.filewatcher.FileModifiedEvent.ModificationType;
 import leola.web.filewatcher.FileModifiedListener;
 import leola.web.filewatcher.FileWatcher;
 import leola.web.templates.TemplateEngine;
+import leola.web.templates.handlebars.HandlebarsTemplateEngine;
 import leola.web.templates.mustache.MustacheTemplateEngine;
 
 /**
@@ -174,8 +175,32 @@ public class WebApp {
         
         initializeWatcher(runtime);
         
-        
-        this.templateEngine = new MustacheTemplateEngine(this);
+        if(config.containsKeyByString("templateEngine")) {
+            LeoObject templateEngine = config.getByString("templateEngine");
+            String type = "mustache";
+            LeoMap tempConfig = new LeoMap();
+            if(templateEngine.isMap()) {
+                tempConfig = templateEngine.as();
+                type = tempConfig.getString("type");
+            }
+            else {
+                type = templateEngine.toString();
+            }
+            
+            switch(type.toLowerCase()) {                
+                case "handlebars": {                    
+                    this.templateEngine = new HandlebarsTemplateEngine(getRootDirectory(), tempConfig);
+                    break;
+                }
+                default: {
+                    this.templateEngine = new MustacheTemplateEngine(this);
+                    break;
+                }
+            }            
+        }
+        else {
+            this.templateEngine = new MustacheTemplateEngine(this);
+        }
     }
 
     
